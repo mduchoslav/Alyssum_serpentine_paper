@@ -9,6 +9,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+# Setting NO evaluation of code chunks as default
 knitr::opts_chunk$set(eval = FALSE)
 ```
 
