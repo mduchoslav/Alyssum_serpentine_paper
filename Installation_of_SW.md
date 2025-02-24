@@ -1,23 +1,23 @@
----
-title: "SW installation for Annotation of *Alyssum gmelinii* genome"
-author: "Milos Duchoslav"
-date: "2025-02-24"
-output:
-  github_document:
-    toc: true
-    toc_depth: 2
----
+SW installation for Annotation of *Alyssum gmelinii* genome
+================
+Milos Duchoslav
+2025-02-24
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(eval = FALSE)
-```
-
+- [FastQC](#fastqc)
+- [MultiQC](#multiqc)
+- [Hisat2](#hisat2)
+- [Samtools](#samtools)
+- [Braker](#braker)
+- [Running IGV on Metacentrum](#running-igv-on-metacentrum)
+- [AGAT](#agat)
+- [Busco](#busco)
+- [Bedtools](#bedtools)
 
 ## FastQC
 
 ### FastQC installation
 
-```{sh}
+``` sh
 # FastQC installation
 cd SW
 mkdir fastqc
@@ -31,7 +31,7 @@ unzip fastqc_v0.12.1.zip
 
 ### FastQC testing
 
-```{sh}
+``` sh
 # add module with Java
 module add openjdk/
 
@@ -46,7 +46,8 @@ module add openjdk/
 ### MultiQC installation
 
 Installed MultiQC version: 1.21
-```{sh}
+
+``` sh
 # MultiQC installation
 # Using locally installed Mamba (installed for running Snakemake)
 source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate
@@ -61,7 +62,7 @@ conda install multiqc
 
 ### MultiQC testing
 
-```{sh}
+``` sh
 # Running MultiQC
 # activation
 source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate Multiqc
@@ -84,7 +85,7 @@ Version: 2.1.0
 
 [HISAT2 manual](http://daehwankimlab.github.io/hisat2/manual/)
 
-```{sh}
+``` sh
 # Load hisat2
 module load hisat2 # Note: The hisat2 does not work on CentOS on Metacentrum (zuphux frontend).
 
@@ -104,10 +105,10 @@ I used Samtools installed as module on Metacentrum.
 
 Version: 1.14
 
-[Samtools GitHub](https://github.com/samtools/samtools)
-[Samtools manual](http://www.htslib.org/doc/samtools.html)
+[Samtools GitHub](https://github.com/samtools/samtools) [Samtools
+manual](http://www.htslib.org/doc/samtools.html)
 
-```{sh}
+``` sh
 # Load samtools
 module load samtools
 
@@ -122,9 +123,10 @@ samtools --version
 
 Braker version used: 3.0.8
 
-[Instructions](https://github.com/Gaius-Augustus/BRAKER?tab=readme-ov-file#container) for Braker installation as Singularity container.
+[Instructions](https://github.com/Gaius-Augustus/BRAKER?tab=readme-ov-file#container)
+for Braker installation as Singularity container.
 
-```{sh}
+``` sh
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
 mkdir braker_sw
 cd braker_sw
@@ -133,12 +135,11 @@ singularity build braker3.sif docker://teambraker/braker3:latest
 
 # version
 singularity exec -B $PWD:$PWD braker3.sif braker.pl --version
-
 ```
 
 ### Running tests of Braker
 
-```{sh}
+``` sh
 # Run the tests
 # (see https://github.com/Gaius-Augustus/BRAKER#container)
 singularity exec -B $PWD:$PWD braker3.sif cp /opt/BRAKER/example/singularity-tests/test1.sh .
@@ -162,7 +163,8 @@ qsub test3_for_Metacentrum.sh
 ```
 
 #### Script for running test 3 of Braker as batch job
-```{sh}
+
+``` sh
 #!/bin/bash
 
 #PBS -N BRAKER_test3
@@ -221,9 +223,9 @@ if [ -d $wd ]; then
 fi
 
 singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --genome=/opt/BRAKER/example/genome.fa --prot_seq=/opt/BRAKER/example/proteins.fa --bam=/opt/BRAKER/example/RNAseq.bam --workingdir=${wd} \
-	    --threads 8 --gm_max_intergenic 10000 --skipOptimize --busco_lineage eukaryota_odb10 &> test3.log
+        --threads 8 --gm_max_intergenic 10000 --skipOptimize --busco_lineage eukaryota_odb10 &> test3.log
 
-	    # Important: the options --gm_max_intergenic 10000 --skipOptimize should never be applied to a real life run!!!                                   
+        # Important: the options --gm_max_intergenic 10000 --skipOptimize should never be applied to a real life run!!!                                   
         # They were only introduced to speed up the test. Please delete them from the script if you use it for real data analysis. 
 
 
@@ -232,7 +234,8 @@ singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --genome=/opt/BRAKER/e
 ```
 
 ## Running IGV on Metacentrum
-```{sh}
+
+``` sh
 # Download IGV
 wget https://data.broadinstitute.org/igv/projects/downloads/2.16/IGV_2.16.2.zip
 # Unzip IGV
@@ -253,9 +256,9 @@ module load openjdk
 
 ## AGAT
 
-AGAT-v1.4.0 
+AGAT-v1.4.0
 
-```{sh}
+``` sh
 cd ~/SW
 mkdir agat
 cd agat
@@ -270,7 +273,8 @@ singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdf
 BUSCO 5.7.1
 
 ### Installation
-```{sh}
+
+``` sh
 source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate
 
 conda create -n busco_5_7_1 -c conda-forge -c bioconda busco=5.7.1
@@ -278,7 +282,8 @@ conda activate busco_5_7_1
 ```
 
 ### Testing
-```{sh}
+
+``` sh
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
 mkdir busco_results
 cd busco_results
@@ -303,7 +308,7 @@ I used Bedtools installed as module on Metacentrum.
 
 bedtools v2.30.0
 
-```{sh}
+``` sh
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
 mkdir intersects
 cd intersects
@@ -317,5 +322,3 @@ module load bedtools2/2.30.0-gcc-10.2.1-5acjqve
 bedtools --version
 # bedtools v2.30.0
 ```
-
-
