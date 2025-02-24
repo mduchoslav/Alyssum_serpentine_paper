@@ -1,34 +1,30 @@
 ---
-title: "Annotations"
+title: "Annotation of Alyssum gmelinii genome"
 author: "Milos Duchoslav"
-date: "2024_05_19"
+date: "2024-2025"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
 
-# Renaming old version and making new folders
-I will leave below the commands how to get some of the files that were here just copied from previous version.
-```{sh}
-# rename old version
-cd /storage/brno12-cerit/home/duchmil/annotations/
-mv alyssum_2024_Mahnaz_assembly/ old_version_01_alyssum_2024_Mahnaz_assembly
-# make new folder and subfolders
-mkdir alyssum_2024_Mahnaz_assembly
-mkdir alyssum_2024_Mahnaz_assembly/genome_assembly
-mkdir alyssum_2024_Mahnaz_assembly/rnaseq
-cp -Rv old_version_01_alyssum_2024_Mahnaz_assembly/rnaseq/1_raw_reads/ old_version_01_alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads/ alyssum_2024_Mahnaz_assembly/rnaseq
 
-cp -Rv old_version_01_alyssum_2024_Mahnaz_assembly/braker_sw alyssum_2024_Mahnaz_assembly/
-cp -Rv old_version_01_alyssum_2024_Mahnaz_assembly/protein_seqs_input alyssum_2024_Mahnaz_assembly/
+# Introduction
 
-mkdir alyssum_2024_Mahnaz_assembly/metacentrum_scripts
-cp -v old_version_01_alyssum_2024_Mahnaz_assembly/metacentrum_scripts/*FastQC* old_version_01_alyssum_2024_Mahnaz_assembly/metacentrum_scripts/*fastqc* old_version_01_alyssum_2024_Mahnaz_assembly/metacentrum_scripts/trim* alyssum_2024_Mahnaz_assembly/metacentrum_scripts
+This RMarkdown file documents the annotation of the newly assembled genome of *Alyssum gmelinii* for the following publication:
 
-```
+Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant, Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in two *Alyssum* species shows convergence with *Arabidopsis* across 20 million years of divergence. Submitted to Annals of Botany.
+
+This file includes:
+
+1. BASH code used at MetaCentrum (Czech national grid infrastructure) running PBS scheduling system for batch jobs.
+2. R code used to run locally.
+
+### SW installation and versions
+
+The SW installation instructions and versions of SW used is described in [Installation_of_SW.md](Installation_of_SW.md).
 
 
-# Preparation for annotation using Braker
+# Preparation of inputs for annotation
 
 ## Genome assembly
 ```{sh}
@@ -40,8 +36,10 @@ cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024_masked.fa .
 ```
 
 
-
 ## Preparation of RNAseq data
+
+Copy the RNAseq data that were generated for the annotation.
+
 ```{sh}
 # Copy RNAseq data
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
@@ -51,6 +49,7 @@ cp -v /storage/brno12-cerit/home/duchmil/annotations/alyssum_2023/input_data/RNA
 ```
 
 ### Script to run both FastQC and MultiQC on RNAseq data
+
 ```{sh}
 #!/bin/bash
 #PBS -N FastQC_Alyssum_1
@@ -104,14 +103,17 @@ time multiqc --filename $report_name --outdir $OUTDIR/multiqc $OUTDIR/fastqc
 ```
 
 ### Trimming
+
 Trimming based on quality, removal of the adaptors.
 Adaptors are there only in case that the insert is too short and it is read through. It means that they are usually at the 3' terminus.
+
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/
 mkdir 2_trimmed_reads
 ```
 
 Trimming and FastQC and MultiQC after trimming
+
 ```{sh}
 ### Script for Metacentrum
 
@@ -186,6 +188,7 @@ clean_scratch
 ```
 
 Checking trimming reports
+
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads
 grep 'Reads with adapters:' *trimming_report.txt # 53-59 %
@@ -193,9 +196,10 @@ grep 'Total written (filtered):' *trimming_report.txt # 93-95 %
 ```
 
 
-
 ### Script to run both FastQC and MultiQC on trimmed RNAseq data
+
 Running again, because it did not work in the script for trimming.
+
 ```{sh}
 #!/bin/bash
 #PBS -N FastQC_Alyssum_2
@@ -252,13 +256,14 @@ The adapters were succesfully trimmed.
 
 
 ## Alignment of RNAseq reads with HISAT2
-Braker instructions (https://github.com/Gaius-Augustus/BRAKER#braker-with-rna-seq-and-protein-data):
+
+[Braker instructions](https://github.com/Gaius-Augustus/BRAKER#braker-with-rna-seq-and-protein-data):
 "GeneMark-ETP utilizes Stringtie2 to assemble RNA-Seq data, which requires that the aligned reads (BAM files) contain the XS (strand) tag for spliced reads. Therefore, if you align your reads with HISAT2, you must enable the --dta option."
 
-HISAT2 manual
-http://daehwankimlab.github.io/hisat2/manual/
+[HISAT2 manual](http://daehwankimlab.github.io/hisat2/manual/) for reference.
 
 ### Building the index for Hisat2
+
 ```{sh}
 ## Building the index
 # Interactive job
@@ -285,14 +290,16 @@ hisat2-build -f -p 4 alyssum_v2_Mahnaz_2024_masked.fa hisat2_index/alyssum_v2_ma
 ```
 
 
-Folder for results
+Folder for the results
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
 mkdir 3_aligned_reads
 ```
 
 ### Running mapping with Hisat2
+
 Conversion to bam, sorting, indexing and merging of the bam and indexing of the merged bam using samtools is included in the script.
+
 ```{sh}
 ### Script for Metacentrum
 
@@ -376,7 +383,9 @@ clean_scratch
 
 
 ### Checking logs
+
 Output statistics: hisat2_alignment_RNAseq.e2738046
+
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/metacentrum_scripts
 # Most important statistics
@@ -393,6 +402,7 @@ paste <(grep 'Alignment for ' $o_file | sed 's/^.*Alignment for //' | sed 's/ do
 ```
 
 Previous version of assembly (without some contigs)
+```
 AM08M_CF        82.69% overall alignment rate       15407328 (72.58%) aligned concordantly exactly 1 time           1182884 (5.57%) aligned concordantly >1 times
 AM08M_RO        81.68% overall alignment rate       14932935 (72.55%) aligned concordantly exactly 1 time           869637 (4.22%) aligned concordantly >1 times
 AM08N_CF        82.45% overall alignment rate       13823535 (67.19%) aligned concordantly exactly 1 time           2274615 (11.06%) aligned concordantly >1 times
@@ -400,8 +410,10 @@ AM08N_OF        85.38% overall alignment rate       13045817 (62.52%) aligned co
 AM08N_OL        78.04% overall alignment rate       12903544 (60.89%) aligned concordantly exactly 1 time           2839212 (13.40%) aligned concordantly >1 times
 AM08N_RO        77.87% overall alignment rate       13821596 (67.40%) aligned concordantly exactly 1 time           1229319 (5.99%) aligned concordantly >1 times
 AM08N_YL        80.74% overall alignment rate       13097845 (61.89%) aligned concordantly exactly 1 time           3170272 (14.98%) aligned concordantly >1 times
+```
 
 Current version of assembly
+```
 AM08M_CF        82.26% overall alignment rate       15395977 (72.53%) aligned concordantly exactly 1 time           1103653 (5.20%) aligned concordantly >1 times
 AM08M_RO        80.78% overall alignment rate       14909449 (72.43%) aligned concordantly exactly 1 time           710062 (3.45%) aligned concordantly >1 times
 AM08N_CF        75.13% overall alignment rate       13619900 (66.20%) aligned concordantly exactly 1 time           987032 (4.80%) aligned concordantly >1 times
@@ -409,8 +421,10 @@ AM08N_OF        68.77% overall alignment rate       12482837 (59.82%) aligned co
 AM08N_OL        71.28% overall alignment rate       12701049 (59.93%) aligned concordantly exactly 1 time           1622373 (7.66%) aligned concordantly >1 times
 AM08N_RO        75.34% overall alignment rate       13749781 (67.05%) aligned concordantly exactly 1 time           790056 (3.85%) aligned concordantly >1 times
 AM08N_YL        69.47% overall alignment rate       12755339 (60.27%) aligned concordantly exactly 1 time           1153072 (5.45%) aligned concordantly >1 times
+```
 
-Checking assembly statistics
+### Checking assembly statistics
+
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
 
@@ -433,6 +447,7 @@ seqtk comp /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum
 
 ```
 
+Results from Quast:
 
 ```
 Assembly                    alyssum_v2_Mahnaz_2024_masked
@@ -462,8 +477,8 @@ L75                         35
 
 ## Preparation of protein sequences
 
-Protein sequences downloaded from https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/ (https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/Viridiplantae.fa.gz).
-Protein sequences should be decompressed (it should be normal fasta).
+OrthoDB protein sequences from whole Viridiplantae downloaded from [here](https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/) ([link to the particular file](https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/Viridiplantae.fa.gz)) as recommended by Braker.
+Protein sequences should be decompressed (it should be plain fasta).
 
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
@@ -476,36 +491,7 @@ gunzip Viridiplantae.fa.gz
 ```
 
 
-## Installation of Braker
-```{sh}
-cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
-mkdir braker_sw
-cd braker_sw
 
-singularity build braker3.sif docker://teambraker/braker3:latest
-
-
-# Run the tests
-# (see https://github.com/Gaius-Augustus/BRAKER#container)
-singularity exec -B $PWD:$PWD braker3.sif cp /opt/BRAKER/example/singularity-tests/test1.sh .
-singularity exec -B $PWD:$PWD braker3.sif cp /opt/BRAKER/example/singularity-tests/test2.sh .
-singularity exec -B $PWD:$PWD braker3.sif cp /opt/BRAKER/example/singularity-tests/test3.sh .
-
-# Interactive job for tests
-qsub -I -l select=1:ncpus=2:mem=16gb -l walltime=2:00:00
-
-cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw
-
-export BRAKER_SIF=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw/braker3.sif
-
-bash test1.sh
-bash test2.sh
-bash test3.sh
-
-# In the end I ran the 3rd test as Metacentrum job:
-qsub test3_for_Metacentrum.sh
-# It ran 11 minutes.
-```
 
 # Running Braker
 
@@ -609,11 +595,12 @@ clean_scratch
 ```
 
 
-
-
 # Quality check of the Braker annotation
 
 ## Running IGV on Metacentrum
+
+I checked visually the results.
+
 ```{sh}
 # Download IGV
 wget https://data.broadinstitute.org/igv/projects/downloads/2.16/IGV_2.16.2.zip
@@ -648,31 +635,32 @@ awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  
 
 
 ## Alignment of protein sequences to the genome assembly
-Miniprot
-https://github.com/lh3/miniprot
+
+I will use [Miniprot](https://github.com/lh3/miniprot) to align proteins to genome.
 The alignment of the proteins will be needed to check the annotation by Braker.
 
 Generally proteins of closely related species with good annotation should be used.
-We used protein sequences of B. rapa, A. thaliana and A. lyrata.
-
-Data:
-B. rapa web page: http://brassicadb.cn
-http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V3.0/Brapa_genome_v3.0_pep.fasta.gz
-http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V4.1/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz
-A. thaliana
-https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz
-A. lyrata NCBI 101 annotation
-https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/004/255/GCF_000004255.2_v.1.0/GCF_000004255.2_v.1.0_protein.faa.gz
+We used protein sequences of *B. rapa*, *A. thaliana* and *A. lyrata*.
 
 
 ### Getting protein sequences
+
+**Data**:
+B. rapa web page: <http://brassicadb.cn>
+File: <http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V4.1/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz>
+
+A. thaliana: <https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz>
+
+A. lyrata NCBI 101 annotation: <https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/004/255/GCF_000004255.2_v.1.0/GCF_000004255.2_v.1.0_protein.faa.gz>
+
+
 ```{sh}
 # download protein sequences
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded
 wget http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V4.1/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz
 
 # this command does not work, I had to download it to my computer and then copy to Metacentrum
-wget https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz
+wget "https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz"
 
 wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/004/255/GCF_000004255.2_v.1.0/GCF_000004255.2_v.1.0_protein.faa.gz
 
@@ -696,7 +684,8 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/p
 mkdir 2_aligned
 ```
 
-Get proteins from Aurinia saxatilis, which is quite close to Alyssum
+Get proteins from *Aurinia saxatilis*, which is quite close to Alyssum
+
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded
 mkdir aurinia
@@ -736,9 +725,12 @@ qsub -I -l select=1:ncpus=2:mem=8gb:scratch_local=10gb -l walltime=2:00:00
 
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded/aurinia
 
-# loading and activating AGAT
-module add mambaforge
-conda activate agat
+## old way of running AGAT
+# module add mambaforge
+# conda activate agat
+
+# run the AGAT container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 ## Protein sequences
 # running command and at the same time putting the messages to log file
@@ -909,22 +901,15 @@ clean_scratch
 ```
 
 ## Extraction of transcript sequences
+
 Extracted transcript sequences will be used to run Busco on them.
 
-### Installation of new version of AGAT
-Older version (v0.6.0) is pre-installed as Mamba module in Metacentrum.
-The installation through Conda/Mamba got stuck, so I used Singularity.
-```{sh}
-cd ~/SW
-mkdir agat
-cd agat
-singularity pull docker://quay.io/biocontainers/agat:1.4.0--pl5321hdfd78af_0
-
-# run the container
-singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
-```
 
 ### Extraction of transcript (mRNA) sequences
+
+Older version of AGAT (v0.6.0) is pre-installed as Mamba module in Metacentrum.
+The installation through Conda/Mamba got stuck, so I used new version through Singularity.
+
 ```{sh}
 # interactive job
 qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
@@ -952,28 +937,8 @@ grep -P '\ttranscript\t' Alyssum_assembled_transcripts.gtf | cut -f 9 | sed 's/;
 
 
 ## Busco
-### Busco installation
-```{sh}
-source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate
-
-conda create -n busco_5_7_1 -c conda-forge -c bioconda busco=5.7.1
-conda activate busco_5_7_1
-```
 
 ### Busco for proteins predicted by Braker
-```{sh}
-cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
-mkdir busco_results
-cd busco_results
-
-source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
-
-busco --list-datasets
-
-# main command
-busco --in ../results_braker_alyssum_01/braker.aa --mode proteins --lineage_dataset brassicales_odb10 --cpu 16
-```
-
 
 ```{sh}
 ### Script for Metacentrum
@@ -1196,8 +1161,6 @@ generate_plot.py -wd .
 ```
 
 
-
-
 ### Busco results
 
 #### Assembly
@@ -1262,8 +1225,8 @@ cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf(
 
 
 ## Intersect between gene models and aligned proteins
-bedtools intersect
-https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html
+
+[Bedtools intersect](https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html)
 
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
@@ -1308,36 +1271,18 @@ done
 
 ```
 
+Numbers of overlapping annotations:
+```
 braker_annotation_x_A.alpina.pep.gff_intersect.tab 16637
 braker_annotation_x_A.lyrata.pep.gff_intersect.tab 18772
 braker_annotation_x_A.saxatilis.pep.gff_intersect.tab 17095
 braker_annotation_x_A.thaliana.pep.gff_intersect.tab 18676
 braker_annotation_x_B.rapa.pep.gff_intersect.tab 17642
 braker_annotation_x_all.pep.gff_intersect.tab 21660
+```
 
 Comment:
 The phylogenetically closer species does not have higher intersect, probably due to worse annotation.
-
-
-
-
-
-Udělat
-- predict lncRNAs?
-  - nebo "expressed features"?
-- přejmenovat
-- převést na gff3
-- kvalita predikovaných genů
-  - expressed
-  - protein support
-- znovu RNAseq pro další anotaci?
-- Orthofinder
-
-- prozkoumat PsbO - jen 1x?
-
-
-
-
 
 
 ## Intersect between gene models and assembled transcripts
@@ -1400,11 +1345,13 @@ wc -l reliable_genes.txt # 26523
 ```
 
 Recapitulation of results:
+```
 Genes predicted by Braker                                                                              32073
 Genes predicted by Braker supported by aligned proteins                                                21660
 Genes predicted by Braker supported by transcripts assembled from RNAseq                               21841
 Genes predicted by Braker supported by both aligned proteins and transcripts assembled from RNAseq     16978
 Genes predicted by Braker supported by either aligned proteins or transcripts assembled from RNAseq    26523
+```
 
 
 ## Statistics of annotation using AGAT
@@ -1428,7 +1375,10 @@ agat_sp_statistics.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_as
 ```
 
 ## Conversion to GFF
-There should be script for conversion in Augustus, but it seems that it does not work well (https://github.com/Gaius-Augustus/BRAKER/issues/275). Thus, I will rather use AGAT.
+
+[Page with links to GTF and GFF specs](https://www.ncbi.nlm.nih.gov/genbank/genomes_gff/)
+
+There should be script for conversion in Augustus, but it seems that it does not work well (<https://github.com/Gaius-Augustus/BRAKER/issues/275>). Thus, I will rather use AGAT.
 
 ```{sh}
 # interactive job
@@ -1444,18 +1394,10 @@ singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdf
 agat_convert_sp_gxf2gxf.pl --gff ../results_braker_alyssum_01/braker.gtf -o alyssum_01_braker.gff
 ```
 
-To do:
-Možná upravit parents pro transcript ještě v gtf? A změnit id v GTF? Odstranit mRNA, které vypadají redundantně?
-
-Links for GTF and GFF specs: https://www.ncbi.nlm.nih.gov/genbank/genomes_gff/
-
-1. Zjistit, jestli je mRNA redundantní s transkriptem. Pokud ano, odstranit.
-2. Druhý sloupec - přidat BRAKER
-3. DOplnit hlavičku.
-4. Vyměnit ID genů a dalších
-
 
 ## Changing IDs in R
+
+The following code snippets are in R.
 
 
 ```{r}
@@ -1531,59 +1473,6 @@ new.genes <- paste0("AM", scaff.genes, syllables3[1:length(old.genes)])
 genes <- cbind.data.frame(old.genes, new.genes, scaff.genes)
 tail(genes)
 
-# gff.3 <- gff.2[1:1000, ]
-# for(i in 1:nrow(genes)) {
-#   system.time(descr1 <- gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"])
-#   # descr2 <- gsub(pattern = paste0("=", genes$old.genes[i], ";"), 
-#   #                replacement = paste0("=", genes$new.genes[i], ";"), 
-#   #                x = descr1)
-#   # descr3 <- gsub(pattern = paste0("=", genes$old.genes[i], "\\.t"), 
-#   #                replacement = paste0("=", genes$new.genes[i], ".t"), 
-#   #                x = descr2)
-#   # descr4 <- gsub(pattern = paste0("=", genes$old.genes[i], "$"), 
-#   #                replacement = paste0("=", genes$new.genes[i], "."), 
-#   #                x = descr3)
-#   # descr5 <- descr4
-#   # exons <- descr5[grep(pattern = "ID=agat-exon-[[:digit:]]+;", x = descr4)]
-#   # transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = exons)
-#   # exons1 <- mapply(sub, pattern = "ID=agat-exon-[[:digit:]]+;", replacement = paste0("ID=exon-", transcripts, "-", 1:length(exons), ";"), x = exons, USE.NAMES = F)
-# 
-# # print(Sys.time())
-#   
-#   
-#   patterns <- c(paste0("=", genes$old.genes[i], ";"),
-#                 paste0("=", genes$old.genes[i], "\\.t"),
-#                 paste0("=", genes$old.genes[i], "$")#,
-#                 #"ID=agat-exon-[[:digit:]]+;"
-#                 )
-#   replacements <- c(paste0("=", genes$new.genes[i], ";"),
-#                         paste0("=", genes$new.genes[i], ".t"),
-#                         paste0("=", genes$new.genes[i])#,
-#                     #paste0("ID=exon-", genes$new.genes[i], "-#;")
-#                     )
-#   descr2 <- descr1
-#   system.time(for(j in 1:length(patterns)) {
-#     descr2 <- gsub(pattern = patterns[j], 
-#                  replacement = replacements[j], 
-#                  x = descr2)
-#   })
-#   
-#   system.time(for(feature in c("exon", "intron", "cds", "start_codon", "stop_codon")) {
-#     extr.feature <- descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)]
-#     if(length(extr.feature) > 0) {
-#       transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = extr.feature)
-#       mod.feature <- mapply(sub, 
-#                             pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), 
-#                             replacement = paste0("ID=", feature, "-", transcripts, "-", 1:length(extr.feature), ";"), 
-#                             x = extr.feature, USE.NAMES = F)
-#       descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)] <- mod.feature
-#     }
-#   })
-#   
-#   system.time(gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"] <- descr2)
-#   if(i %% 10 == 0) print(paste(i, "out of", nrow(genes), "done"))
-#   # i=i+1
-# }
 
 # Row numbers where data for one gene begin and end are needed (see the loop below)
 # GFF needs to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene).
@@ -1700,7 +1589,7 @@ gff.header <- gff.raw[grep(pattern = "^#", x = gff.raw)]
 # add my lines to the header
 ## Note: This header will not be used later, I will exchange it for better one whil merging this annotation with annotation of unknown expressed features.
 gff.header.2 <- rbind(gff.header,
-                      "# Alyssum montanum genome annotation",
+                      "# Alyssum gmelinii genome annotation",
                       "# 2024-07-31",
                       "#",
                       "# Genome assembly",
@@ -1752,6 +1641,9 @@ write.table(x = gff.4, file = "annot_processing/alyssum_01_changed_IDs.gff", sep
 
 
 ## Statistics of annotation and extraction of protein and coding sequences using AGAT
+
+Again back to to Linux terminal.
+
 ```{sh}
 # interactive job
 qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
@@ -1768,16 +1660,17 @@ agat_sq_stat_basic.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../ge
 agat_sp_statistics.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_01_changed_IDs.gff.txt
 ```
 Basic statistics:
-
-Type (3rd column)       Number  Size total (kb) Size mean (bp)  % of the genome /!\Results are rounding to two decimal places
-cds     173921  42686.71        245.44  6.25
-exon    173921  42686.71        245.44  6.25
-gene    32073   62652.25        1953.43 9.17
-intron  138011  29917.95        216.78  4.38
-start_codon     35902   107.68  3.00    0.02
-stop_codon      35902   107.69  3.00    0.02
-transcript      35910   72604.66        2021.85 10.62
-Total   625640  250763.65       400.81  36.70
+```
+Type (3rd column)       Number  Size total (kb) Size mean (bp)  % of the genome 
+cds                     173921         42686.71         245.44             6.25
+exon                    173921         42686.71         245.44             6.25
+gene                     32073         62652.25        1953.43             9.17
+intron                  138011         29917.95         216.78             4.38
+start_codon              35902           107.68           3.00             0.02
+stop_codon               35902           107.69           3.00             0.02
+transcript               35910         72604.66        2021.85            10.62
+Total                   625640        250763.65         400.81            36.70
+```
 
 ```{sh}
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
@@ -1799,14 +1692,14 @@ awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  
 
 
 # Adding unknown expressed features
-Bedtools subtract
-https://bedtools.readthedocs.io/en/latest/content/tools/subtract.html
+
+[Bedtools subtract](https://bedtools.readthedocs.io/en/latest/content/tools/subtract.html)
 I will use -A option to get only transcripts with no overlap with Braker annotation.
 
-### Note for future
+#### Note for future
 Some tools used to annotate noncoding genes in A. thaliana genomes are descibed in this publication:
 
-Lian, Qichao, Bruno Huettel, Birgit Walkemeier, Baptiste Mayjonade, Céline Lopez-Roques, Lisa Gil, Fabrice Roux, Korbinian Schneeberger, and Raphael Mercier. “A Pan-Genome of 69 Arabidopsis Thaliana Accessions Reveals a Conserved Genome Structure throughout the Global Species Range.” Nature Genetics 56, no. 5 (May 2024): 982–91. https://doi.org/10.1038/s41588-024-01715-9.
+Lian, Qichao, Bruno Huettel, Birgit Walkemeier, Baptiste Mayjonade, Céline Lopez-Roques, Lisa Gil, Fabrice Roux, Korbinian Schneeberger, and Raphael Mercier. “A Pan-Genome of 69 Arabidopsis Thaliana Accessions Reveals a Conserved Genome Structure throughout the Global Species Range.” Nature Genetics 56, no. 5 (May 2024): 982–91. <https://doi.org/10.1038/s41588-024-01715-9>.
 
 It might be good to try them.
 
@@ -1867,6 +1760,7 @@ grep -P -c "\tRNA\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_cl
 
 ## Changing IDs of unknown expressed features in R
 
+Back to R again.
 
 ```{r}
 setwd("D:/!ecolgen/annotations/Alyssum/Alyssum_assembly_from_Mahnaz_2024_05")
@@ -2086,7 +1980,7 @@ gff.header.2 <- rbind(gff.header,
                       "# Email: duchmil[at]gmail.com",
                       "# ",
                       "# Protein coding genes were predicted by",
-                      "# BRAKER version 3.0.8 based on RNA-seq data from Alyssum montanum ",
+                      "# BRAKER version 3.0.8 based on RNA-seq data from Alyssum gmelinii ",
                       "# and OrthoDB proteins from the whole Viridiplantae.",
                       "# ",
                       "# To include non-coding RNA genes and similar features,",
