@@ -1,6 +1,6 @@
 ---
 title: "SW installation for Annotation of *Alyssum gmelinii* genome"
-author: "Milos Duchoslav"
+author: "Miloš Duchoslav"
 date: "2025-02-25"
 output:
   github_document:

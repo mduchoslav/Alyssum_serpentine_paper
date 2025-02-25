@@ -19,7 +19,7 @@ knitr::opts_chunk$set(eval = FALSE)
 
 This RMarkdown file documents the annotation of the newly assembled genome of *Alyssum gmelinii* for the following publication:
 
-Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant, Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in two *Alyssum* species shows convergence with *Arabidopsis* across 20 million years of divergence. Submitted to Annals of Botany.
+> Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant, Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in two *Alyssum* species shows convergence with *Arabidopsis* across 20 million years of divergence. Submitted to Annals of Botany.
 
 This file includes:
 
@@ -1985,6 +1985,7 @@ agat_sq_stat_basic.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../gen
 agat_sp_statistics.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_annotation_01.gff.txt
 ```
 
+```
 Type (3rd column)	Number	Size total (kb)	Size mean (bp)	% of the genome
 cds	              173921	42686.71	      245.44	        6.25
 exon	            250209	63637.83	      254.34	        9.31
@@ -1996,6 +1997,7 @@ start_codon	      35902	  107.68	        3.00	          0.02
 stop_codon	      35902	  107.69	        3.00	          0.02
 transcript	      35910	  72604.66	      2021.85	        10.62
 Total	            755210	362714.59	      480.28	        53.08
+```
 
 
 The proteins and CDSs should be same as for alyssum_01_changed_IDs.gff, but I will extract it again.
