@@ -1,0 +1,2334 @@
+Annotation of *Alyssum gmelinii* genome
+================
+Miloš Duchoslav
+2024-2025
+
+- [Introduction](#introduction)
+- [Preparation of inputs for
+  annotation](#preparation-of-inputs-for-annotation)
+  - [Genome assembly](#genome-assembly)
+  - [Preparation of RNAseq data](#preparation-of-rnaseq-data)
+  - [Alignment of RNAseq reads with
+    HISAT2](#alignment-of-rnaseq-reads-with-hisat2)
+  - [Preparation of protein
+    sequences](#preparation-of-protein-sequences)
+- [Running Braker](#running-braker)
+- [Quality check of the Braker
+  annotation](#quality-check-of-the-braker-annotation)
+  - [Running IGV on Metacentrum](#running-igv-on-metacentrum)
+  - [Number of genes](#number-of-genes)
+  - [Checking proteins predicted by Braker for stop
+    codons](#checking-proteins-predicted-by-braker-for-stop-codons)
+  - [Alignment of protein sequences to the genome
+    assembly](#alignment-of-protein-sequences-to-the-genome-assembly)
+  - [Assembly of transcripts from RNAseq
+    alignment](#assembly-of-transcripts-from-rnaseq-alignment)
+  - [Extraction of transcript
+    sequences](#extraction-of-transcript-sequences)
+  - [Busco](#busco)
+  - [Intersect between gene models and aligned
+    proteins](#intersect-between-gene-models-and-aligned-proteins)
+  - [Intersect between gene models and assembled
+    transcripts](#intersect-between-gene-models-and-assembled-transcripts)
+  - [Getting the list of “reliable”
+    genes](#getting-the-list-of-reliable-genes)
+  - [Statistics of annotation using
+    AGAT](#statistics-of-annotation-using-agat)
+  - [Conversion to GFF](#conversion-to-gff)
+  - [Changing IDs in R](#changing-ids-in-r)
+  - [Statistics of annotation and extraction of protein and coding
+    sequences using
+    AGAT](#statistics-of-annotation-and-extraction-of-protein-and-coding-sequences-using-agat)
+- [Adding unknown expressed
+  features](#adding-unknown-expressed-features)
+  - [Changing IDs of unknown expressed features in
+    R](#changing-ids-of-unknown-expressed-features-in-r)
+  - [Merging annotations](#merging-annotations)
+  - [Statistics of annotation and extraction of protein and coding
+    sequences using
+    AGAT](#statistics-of-annotation-and-extraction-of-protein-and-coding-sequences-using-agat-1)
+- [Changing IDs of all genes and features based on Sonia’s
+  request](#changing-ids-of-all-genes-and-features-based-on-sonias-request)
+  - [Statistics of annotation and extraction of protein and coding
+    sequences using
+    AGAT](#statistics-of-annotation-and-extraction-of-protein-and-coding-sequences-using-agat-2)
+- [To do](#to-do)
+
+# Introduction
+
+This RMarkdown file documents the annotation of the newly assembled
+genome of *Alyssum gmelinii* for the following publication:
+
+> Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn
+> Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena
+> Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant,
+> Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in
+> two *Alyssum* species shows convergence with *Arabidopsis* across 20
+> million years of divergence. Submitted to Annals of Botany.
+
+This file includes:
+
+1.  BASH code used at MetaCentrum (Czech national grid infrastructure)
+    running PBS scheduling system for batch jobs.
+2.  R code used to run locally.
+
+### SW installation and versions
+
+The SW installation instructions and versions of SW used is described in
+[Installation_of_SW.md](Installation_of_SW.md).
+
+# Preparation of inputs for annotation
+
+## Genome assembly
+
+``` sh
+# Copying assembly from Mahnaz
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
+cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024.fa .
+cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024_masked.fa .
+```
+
+## Preparation of RNAseq data
+
+Copy the RNAseq data that were generated for the annotation.
+
+``` sh
+# Copy RNAseq data
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
+mkdir 1_raw_reads
+cd 1_raw_reads
+cp -v /storage/brno12-cerit/home/duchmil/annotations/alyssum_2023/input_data/RNA_allysum/AM08?_??_?.fastq.gz .
+```
+
+### Script to run both FastQC and MultiQC on RNAseq data
+
+``` sh
+#!/bin/bash
+#PBS -N FastQC_Alyssum_1
+#PBS -l select=1:ncpus=10:mem=96gb:scratch_local=10gb
+#PBS -l walltime=2:00:00
+#PBS -j oe
+
+trap 'clean_scratch' TERM EXIT
+
+# define a DATADIR variable: directory where the input files are taken from
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/1_raw_reads
+# directory for output
+OUTDIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/1_raw_reads
+# report name
+report_name="Alyssum_RNAseq_MultiQC_report"
+
+# create the fastqc dir if it does not exists
+if [ ! -d $OUTDIR/fastqc ]; then 
+mkdir $OUTDIR/fastqc
+fi
+
+# create the multiqc dir if it does not exists
+if [ ! -d $OUTDIR/multiqc ]; then
+mkdir $OUTDIR/multiqc
+fi
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+#test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# load Java
+module add openjdk/
+
+# FastQC run
+
+# Version 1 for files in multiple folders
+# time find $DATADIR -type f -iname "*.fastq.gz" -print0 | xargs -0 /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 10 -o $OUTDIR/fastqc -f fastq
+
+# Version 2 for files in single folder (not going to subfolders)
+time /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 10 -o $OUTDIR/fastqc -f fastq $DATADIR/*.fastq.gz
+
+
+# Running MultiQC
+# activation
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate Multiqc
+
+# run MultiQC
+time multiqc --filename $report_name --outdir $OUTDIR/multiqc $OUTDIR/fastqc
+
+# Resources: 6 min, 25 % memory, 49 % CPU. It was a bit overkill for 14 files.
+```
+
+### Trimming
+
+Trimming based on quality, removal of the adaptors. Adaptors are there
+only in case that the insert is too short and it is read through. It
+means that they are usually at the 3’ terminus.
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/
+mkdir 2_trimmed_reads
+```
+
+Trimming and FastQC and MultiQC after trimming
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N trim_galore_for_RNAseq
+#PBS -l select=1:ncpus=4:mem=20gb:scratch_local=10gb
+#PBS -l walltime=4:00:00 
+#PBS -m ae
+
+## trim_galore
+
+# define a DATADIR variable: directory where the input files are taken from
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/1_raw_reads
+# directory for output
+OUTDIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" >> $PBS_O_WORKDIR/jobs_info.txt
+
+# move into data directory
+cd $DATADIR
+
+# running trim_galore
+module load trim_galore/
+time trim_galore --paired --cores 4 -o $OUTDIR *.fastq.gz
+
+
+## FastQC and MultiQC after trim_galore
+
+#### FastQC did not work because the files after trim_galore trimming end with *.fq.gz and not *.fastq.gz!
+
+# report name
+report_name="Alyssum_RNAseq_MultiQC_report"
+
+# create the fastqc dir if it does not exists
+if [ ! -d $OUTDIR/fastqc ]; then 
+mkdir $OUTDIR/fastqc
+fi
+
+# create the multiqc dir if it does not exists
+if [ ! -d $OUTDIR/multiqc ]; then
+mkdir $OUTDIR/multiqc
+fi
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+#test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# load Java
+module add openjdk/
+
+# FastQC run
+
+# Version 1 for files in multiple folders
+# time find $DATADIR -type f -iname "*.fastq.gz" -print0 | xargs -0 /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 10 -o $OUTDIR/fastqc -f fastq
+
+# Version 2 for files in single folder (not going to subfolders)
+time /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 4 -o $OUTDIR/fastqc -f fastq $OUTDIR/*.fastq.gz
+
+
+# Running MultiQC
+# activation
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate Multiqc
+
+# run MultiQC
+time multiqc --filename $report_name --outdir $OUTDIR/multiqc $OUTDIR
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: 1 h 29 min, 90 % CPU, 100 % memory (but FastQC and MultiQC did not run).
+```
+
+Checking trimming reports
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads
+grep 'Reads with adapters:' *trimming_report.txt # 53-59 %
+grep 'Total written (filtered):' *trimming_report.txt # 93-95 %
+```
+
+### Script to run both FastQC and MultiQC on trimmed RNAseq data
+
+Running again, because it did not work in the script for trimming.
+
+``` sh
+#!/bin/bash
+#PBS -N FastQC_Alyssum_2
+#PBS -l select=1:ncpus=4:mem=48gb:scratch_local=10gb
+#PBS -l walltime=4:00:00
+#PBS -j oe
+
+trap 'clean_scratch' TERM EXIT
+
+# define a DATADIR variable: directory where the input files are taken from
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads
+# directory for output
+OUTDIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/2_trimmed_reads
+# report name
+report_name="Alyssum_RNAseq_MultiQC_report_after_trimming"
+
+# create the fastqc dir if it does not exists
+if [ ! -d $OUTDIR/fastqc ]; then 
+mkdir $OUTDIR/fastqc
+fi
+
+# create the multiqc dir if it does not exists
+if [ ! -d $OUTDIR/multiqc ]; then
+mkdir $OUTDIR/multiqc
+fi
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+#test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# load Java
+module add openjdk/
+
+# FastQC run
+
+# Version 1 for files in multiple folders
+# time find $DATADIR -type f -iname "*.fastq.gz" -print0 | xargs -0 /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 4 -o $OUTDIR/fastqc -f fastq
+
+# Version 2 for files in single folder (not going to subfolders)
+time /storage/brno12-cerit/home/duchmil/SW/fastqc/FastQC/fastqc -t 4 -o $OUTDIR/fastqc -f fastq $DATADIR/*.fastq.gz $DATADIR/*.fq.gz
+
+
+# Running MultiQC
+# activation
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate Multiqc
+
+# run MultiQC
+time multiqc --filename $report_name --outdir $OUTDIR/multiqc $OUTDIR/fastqc
+
+# Resources: 10 min, 42 % memory, 75 % CPU.
+```
+
+MultiQC report: The adapters were succesfully trimmed.
+
+## Alignment of RNAseq reads with HISAT2
+
+[Braker
+instructions](https://github.com/Gaius-Augustus/BRAKER#braker-with-rna-seq-and-protein-data):
+“GeneMark-ETP utilizes Stringtie2 to assemble RNA-Seq data, which
+requires that the aligned reads (BAM files) contain the XS (strand) tag
+for spliced reads. Therefore, if you align your reads with HISAT2, you
+must enable the –dta option.”
+
+[HISAT2 manual](http://daehwankimlab.github.io/hisat2/manual/) for
+reference.
+
+### Building the index for Hisat2
+
+``` sh
+## Building the index
+# Interactive job
+qsub -I -l select=1:ncpus=4:mem=16gb -l walltime=1:00:00
+# Get to the data
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
+# Load hisat2
+module load hisat2 # Note: The hisat2 does not work on CentOS on Metacentrum (zuphux frontend).
+
+hisat2 --version
+# /cvmfs/software.metacentrum.cz/spack1/software/hisat2/linux-debian10-x86_64/2.1.0-intel-itifoz/bin/hisat2-align-s # version 2.1.0
+# 64-bit
+# Built on metasw11.grid.cesnet.cz
+# Thu Oct 27 11:46:07 CEST 2022
+# Compiler: gcc version 8.3.0 (Debian 8.3.0-6)
+# Options: -O3 -m64 -msse2 -funroll-loops -g3 -DPOPCNT_CAPABILITY
+# Sizeof {int, long, long long, void*, size_t, off_t}: {4, 8, 8, 8, 8, 8}
+
+mkdir hisat2_index
+
+# Build the index of refrence seqeunce
+hisat2-build -f -p 4 alyssum_v2_Mahnaz_2024_masked.fa hisat2_index/alyssum_v2_masked
+# This took less than 10 min.
+```
+
+Folder for the results
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
+mkdir 3_aligned_reads
+```
+
+### Running mapping with Hisat2
+
+Conversion to bam, sorting, indexing and merging of the bam and indexing
+of the merged bam using samtools is included in the script.
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N hisat2_alignment_RNAseq
+#PBS -l select=1:ncpus=32:mem=96gb:scratch_local=200gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# loading modules needed
+module load hisat2
+hisat2 --version
+module load samtools
+samtools --version
+
+echo "Modules loaded" | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy reference genome index files
+cp -v -r $DATADIR/genome_assembly/hisat2_index/*.ht2 $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+# copy RNAseq files
+cp -v -r $DATADIR/rnaseq/2_trimmed_reads/*.fq.gz $SCRATCHDIR || { echo >&2 "Error while copying fastq file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+# running HISAT2
+for my_sample in AM08M_CF AM08M_RO AM08N_CF AM08N_OF AM08N_OL AM08N_RO AM08N_YL
+do
+hisat2 -q -t --dta -p 32 -x alyssum_v2_masked \
+ -1  $my_sample"_1_val_1.fq.gz"\
+ -2  $my_sample"_2_val_2.fq.gz"\
+ -S $my_sample"_trimmed.sam" | ts '[%Y-%m-%d %H:%M:%S]'
+ 
+ echo "Alignment for $my_sample done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# conversion to bam 
+samtools view -bS --threads 32 $my_sample"_trimmed.sam" > $my_sample"_trimmed.bam"
+# sorting of bam
+samtools sort --threads 32 $my_sample"_trimmed.bam" -o $my_sample"_trimmed_sorted.bam"
+# indexing of bam
+samtools index -@ 32 $my_sample"_trimmed_sorted.bam"
+
+echo "Samtools conversion to bam, sorting and indexing for $my_sample done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -v $my_sample"_trimmed_sorted.bam" $DATADIR/rnaseq/3_aligned_reads/ || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+cp -v $my_sample"_trimmed_sorted.bam.bai" $DATADIR/rnaseq/3_aligned_reads/ || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Copying output files for $my_sample done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+done
+
+# Merging of bams
+samtools merge -@ 32 -o Alyssum_RNAseq_trimmed_merged.bam *_trimmed_sorted.bam
+# indexing of merged bam
+samtools index -@ 32 Alyssum_RNAseq_trimmed_merged.bam
+cp -v Alyssum_RNAseq_trimmed_merged.bam* $DATADIR/rnaseq/3_aligned_reads/ || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Merging of bams done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: 55 min, 73 % CPU, 100 % memory
+```
+
+### Checking logs
+
+Output statistics: hisat2_alignment_RNAseq.e2738046
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/metacentrum_scripts
+# Most important statistics
+o_file=hisat2_alignment_RNAseq.o2738046
+e_file=hisat2_alignment_RNAseq.e2738046
+paste <(grep 'Alignment for ' $o_file | sed 's/^.*Alignment for //' | sed 's/ done.//') <(grep 'overall alignment rate' $e_file)  <(grep 'aligned concordantly exactly 1 time' $e_file) <(grep 'aligned concordantly >1 times' $e_file) | less -S
+
+# Statistics from previous version of assembly
+cd /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum_2024_Mahnaz_assembly/metacentrum_scripts/
+o_file=hisat2_alignment_RNAseq.o1975152
+e_file=hisat2_alignment_RNAseq.e1975152
+paste <(grep 'Alignment for ' $o_file | sed 's/^.*Alignment for //' | sed 's/ done.//') <(grep 'overall alignment rate' $e_file)  <(grep 'aligned concordantly exactly 1 time' $e_file) <(grep 'aligned concordantly >1 times' $e_file) | less -S
+```
+
+Previous version of assembly (without some contigs)
+
+    AM08M_CF        82.69% overall alignment rate       15407328 (72.58%) aligned concordantly exactly 1 time           1182884 (5.57%) aligned concordantly >1 times
+    AM08M_RO        81.68% overall alignment rate       14932935 (72.55%) aligned concordantly exactly 1 time           869637 (4.22%) aligned concordantly >1 times
+    AM08N_CF        82.45% overall alignment rate       13823535 (67.19%) aligned concordantly exactly 1 time           2274615 (11.06%) aligned concordantly >1 times
+    AM08N_OF        85.38% overall alignment rate       13045817 (62.52%) aligned concordantly exactly 1 time           4027586 (19.30%) aligned concordantly >1 times
+    AM08N_OL        78.04% overall alignment rate       12903544 (60.89%) aligned concordantly exactly 1 time           2839212 (13.40%) aligned concordantly >1 times
+    AM08N_RO        77.87% overall alignment rate       13821596 (67.40%) aligned concordantly exactly 1 time           1229319 (5.99%) aligned concordantly >1 times
+    AM08N_YL        80.74% overall alignment rate       13097845 (61.89%) aligned concordantly exactly 1 time           3170272 (14.98%) aligned concordantly >1 times
+
+Current version of assembly
+
+    AM08M_CF        82.26% overall alignment rate       15395977 (72.53%) aligned concordantly exactly 1 time           1103653 (5.20%) aligned concordantly >1 times
+    AM08M_RO        80.78% overall alignment rate       14909449 (72.43%) aligned concordantly exactly 1 time           710062 (3.45%) aligned concordantly >1 times
+    AM08N_CF        75.13% overall alignment rate       13619900 (66.20%) aligned concordantly exactly 1 time           987032 (4.80%) aligned concordantly >1 times
+    AM08N_OF        68.77% overall alignment rate       12482837 (59.82%) aligned concordantly exactly 1 time           1164331 (5.58%) aligned concordantly >1 times
+    AM08N_OL        71.28% overall alignment rate       12701049 (59.93%) aligned concordantly exactly 1 time           1622373 (7.66%) aligned concordantly >1 times
+    AM08N_RO        75.34% overall alignment rate       13749781 (67.05%) aligned concordantly exactly 1 time           790056 (3.85%) aligned concordantly >1 times
+    AM08N_YL        69.47% overall alignment rate       12755339 (60.27%) aligned concordantly exactly 1 time           1153072 (5.45%) aligned concordantly >1 times
+
+### Checking assembly statistics
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
+
+# Current assembly
+grep -c '>' alyssum_v2_Mahnaz_2024_masked.fa # 168
+# Previous version
+grep -c '>' /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_100ctgFromCurated.masked.fasta # 100
+
+module load quast
+quast.py alyssum_v2_Mahnaz_2024_masked.fa
+less quast_results/results_2024_06_21_15_44_33/report.txt
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
+module load seqtk
+# info about columns
+seqtk comp
+# info about sequences
+seqtk comp alyssum_v2_Mahnaz_2024_masked.fa | head -n 50 | column -t
+seqtk comp /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_100ctgFromCurated.masked.fasta | head -n 50 | column -t
+```
+
+Results from Quast:
+
+    Assembly                    alyssum_v2_Mahnaz_2024_masked
+    # contigs (>= 0 bp)         168
+    # contigs (>= 1000 bp)      168
+    # contigs (>= 5000 bp)      168
+    # contigs (>= 10000 bp)     168
+    # contigs (>= 25000 bp)     163
+    # contigs (>= 50000 bp)     108
+    Total length (>= 0 bp)      683338063
+    Total length (>= 1000 bp)   683338063
+    Total length (>= 5000 bp)   683338063
+    Total length (>= 10000 bp)  683338063
+    Total length (>= 25000 bp)  683223685
+    Total length (>= 50000 bp)  681172935
+    # contigs                   168
+    Largest contig              33309422
+    Total length                683338063
+    GC (%)                      38.45
+    N50                         12254332
+    N75                         7380926
+    L50                         17
+    L75                         35
+    # N's per 100 kbp           0.00
+
+## Preparation of protein sequences
+
+OrthoDB protein sequences from whole Viridiplantae downloaded from
+[here](https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/)
+([link to the particular
+file](https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/Viridiplantae.fa.gz))
+as recommended by Braker. Protein sequences should be decompressed (it
+should be plain fasta).
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
+mkdir protein_seqs_input
+cd protein_seqs_input
+mkdir 1_downloaded
+cd 1_downloaded
+wget https://bioinf.uni-greifswald.de/bioinf/partitioned_odb11/Viridiplantae.fa.gz
+gunzip Viridiplantae.fa.gz
+```
+
+# Running Braker
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N braker_alyssum_01
+#PBS -l select=1:ncpus=16:mem=96gb:scratch_local=1000gb
+#PBS -l walltime=24:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -r $DATADIR/rnaseq/3_aligned_reads/Alyssum_RNAseq_trimmed_merged.bam $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/protein_seqs_input/1_downloaded/Viridiplantae.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+mkdir results_braker_alyssum_01
+
+# running BRAKER
+export BRAKER_SIF=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw/braker3.sif
+
+singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=alyssum_v2_Mahnaz_2024_masked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_01
+# Note: Protein sequences shouldn't be compressed. It should be plain fasta.
+
+
+# move the output to user's DATADIR or exit in case of failure
+cp -r results_braker_alyssum_01 $DATADIR/ || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: The job was running less than 12 hours, using 93% memory and 56% of CPU time.
+```
+
+Try –UTR=on or –addUTR=on options?
+
+### Trying to train and predict also UTR
+
+However, it was not working. The script fails because it can’t find
+Java. From GitHub issues: “Please note that Java is only necessary if
+you are running BRAKER with UTR=on, and UTR mode is currently under
+development and not supported. Therefore, we recommend that you avoid
+using it.”
+
+``` sh
+### Script for Metacentrum
+
+### Adding UTRs to the previous run of BRAKER
+
+#PBS -N braker_alyssum_02_UTR
+#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=1000gb
+#PBS -l walltime=24:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -r $DATADIR/rnaseq/3_aligned_reads/Alyssum_RNAseq_trimmed_merged.bam $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+# cp -r $DATADIR/protein_seqs_input/1_downloaded/Viridiplantae.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/results_braker_alyssum_01/Augustus/augustus.hints.gtf $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+mkdir results_braker_alyssum_02
+
+
+# running BRAKER
+export BRAKER_SIF=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw/braker3.sif
+
+singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=alyssum_v2_Mahnaz_2024_masked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_02 --AUGUSTUS_hints_preds=augustus.hints.gtf --addUTR=on --skipAllTraining
+
+
+# move the output to user's DATADIR or exit in case of failure
+cp -r results_braker_alyssum_02_UTR $DATADIR/ || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+# clean the SCRATCH directory
+clean_scratch
+```
+
+# Quality check of the Braker annotation
+
+## Running IGV on Metacentrum
+
+I checked visually the results.
+
+``` sh
+# Download IGV
+wget https://data.broadinstitute.org/igv/projects/downloads/2.16/IGV_2.16.2.zip
+# Unzip IGV
+unzip IGV_2.16.2.zip
+# Start interactive job
+qsub -I -l select=1:ncpus=2:mem=32gb:scratch_local=40gb -l walltime=5:00:00
+# load and start GUI
+module add gui
+gui start
+# Open the URL in browser.
+# Open terminal in GUI.
+# Run these commands:
+# load Java
+module load openjdk
+# run IGV
+/storage/brno12-cerit/home/duchmil/SW/igv/IGV_2.16.2/igv.sh
+```
+
+## Number of genes
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/results_braker_alyssum_01/
+grep -c -P "\tgene\t" braker.gtf # 32073
+```
+
+## Checking proteins predicted by Braker for stop codons
+
+``` sh
+# converting from folded fasta to unfolded fasta for better counting and counting internal stop codons
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < braker.aa | grep \*[[:alpha:]] | wc -l # 0
+```
+
+## Alignment of protein sequences to the genome assembly
+
+I will use [Miniprot](https://github.com/lh3/miniprot) to align proteins
+to genome. The alignment of the proteins will be needed to check the
+annotation by Braker.
+
+Generally proteins of closely related species with good annotation
+should be used. We used protein sequences of *B. rapa*, *A. thaliana*
+and *A. lyrata*.
+
+### Getting protein sequences
+
+**Data**: B. rapa web page: <http://brassicadb.cn> File:
+<http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V4.1/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz>
+
+A. thaliana:
+<https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz>
+
+A. lyrata NCBI 101 annotation:
+<https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/004/255/GCF_000004255.2_v.1.0/GCF_000004255.2_v.1.0_protein.faa.gz>
+
+``` sh
+# download protein sequences
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded
+wget http://39.100.233.196:82/download_genome/Brassica_Genome_data/Brara_Chiifu_V4.1/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz
+
+# this command does not work, I had to download it to my computer and then copy to Metacentrum
+wget "https://www.arabidopsis.org/download/file?path=Proteins/Araport11_protein_lists/Araport11_pep_20220914.gz"
+
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/004/255/GCF_000004255.2_v.1.0/GCF_000004255.2_v.1.0_protein.faa.gz
+
+# proteins from Arabis alpina that I extracted from assembly and annotation for Orthofinder
+# A. alpina is in the same lineage of Brassicaceae as Alyssum.
+cp /storage/brno12-cerit/home/duchmil/orthofinder/brassicaceae_1/genomes_for_extracting_proteins/A_alpina/A_alpina_proteins.fasta .
+
+
+# checking number of sequences
+zgrep -c '>' Araport11_pep_20220914.gz # 48266
+zgrep -c '>' Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz # 83470
+zgrep -c '>' GCF_000004255.2_v.1.0_protein.faa.gz # 39161
+grep -c '>' A_alpina_proteins.fasta # 34212
+
+# check stop codons
+# converting from folded fasta to unfolded fasta for better counting and counting internal stop codons
+zcat GCF_000004255.2_v.1.0_protein.faa.gz | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | grep \*[[:alpha:]] | wc -l # 0
+
+# make folder for results
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input
+mkdir 2_aligned
+```
+
+Get proteins from *Aurinia saxatilis*, which is quite close to Alyssum
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded
+mkdir aurinia
+cd aurinia
+# Download assembly
+wget https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_900406295.1?download=true&gzip=true
+mv GCA_900406295.1\?download\=true GCA_900406295.1.fasta.gz
+zgrep -c '>' GCA_900406295.1.fasta.gz
+gunzip GCA_900406295.1.fasta.gz
+
+# Download annotation
+wget ftp://ftp.sra.ebi.ac.uk/vol1/analysis/ERZ107/ERZ1070082/Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff.gz
+gunzip Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff.gz
+
+grep '>' GCA_900406295.1.fasta | head -n 100
+head Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff
+# The scaffold have different names in annotation and assembly!
+
+## Fix the names in assembly fasta
+# shorten the names of sequences just to "scaffoldXXX"
+head GCA_900406295.1.fasta | sed -E 's/^(>).* /\1/'
+sed -E 's/^(>).* /\1/' GCA_900406295.1.fasta > GCA_900406295.1_scaff_names_modified.fasta
+# check
+grep '>' GCA_900406295.1_scaff_names_modified.fasta | head -n 100
+
+## Fix the names in GFF
+head Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff
+# remove from the scaffold names "|sizeXXX"
+sed -E 's/\|size[0-9]+//' Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff | head
+sed -E 's/\|size[0-9]+//' Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0.gff > Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0_scaff_names_modified.gff
+
+
+
+
+# interactive job
+qsub -I -l select=1:ncpus=2:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/protein_seqs_input/1_downloaded/aurinia
+
+## old way of running AGAT
+# module add mambaforge
+# conda activate agat
+
+# run the AGAT container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+## Protein sequences
+# running command and at the same time putting the messages to log file
+agat_sp_extract_sequences.pl -g Alyssum_saxatile.protein-coding.gene.MPIPZ.v1.0_scaff_names_modified.gff -f GCA_900406295.1_scaff_names_modified.fasta -p -o Aurinia_saxatilis_proteins.fasta | tee log_proteins_AGAT.txt
+
+# counting the number of sequences
+grep -c ">" Aurinia_saxatilis_proteins.fasta
+#49234
+
+# converting from folded fasta to unfolded fasta for better counting and checking for internal stop codons
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < Aurinia_saxatilis_proteins.fasta | grep \*[[:alpha:]] | wc -l
+# 779
+
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < Aurinia_saxatilis_proteins.fasta | grep \*[[:alpha:]] | head -n 100
+```
+
+### Miniprot alignment
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N miniprot_alignment_01
+#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=1000gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+MINIPROTDIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/miniprot
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -r $DATADIR/protein_seqs_input/1_downloaded/Araport11_pep_20220914.gz \
+$DATADIR/protein_seqs_input/1_downloaded/Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz \
+$DATADIR/protein_seqs_input/1_downloaded/GCF_000004255.2_v.1.0_protein.faa.gz \
+$DATADIR/protein_seqs_input/1_downloaded/A_alpina_proteins.fasta \
+$DATADIR/protein_seqs_input/1_downloaded/Aurinia_saxatilis_proteins.fasta  \
+$SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+
+cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+# make index for miniprot
+$MINIPROTDIR/miniprot -t16 -d alyssum_v2_Mahnaz_2024_masked.mpi alyssum_v2_Mahnaz_2024_masked.fa
+
+echo "Miniprot index prepared." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# running miniprot
+$MINIPROTDIR/miniprot -Iut16 --gff alyssum_v2_Mahnaz_2024_masked.mpi Araport11_pep_20220914.gz > A.thaliana.pep.gff
+echo "A. thaliana done." | ts '[%Y-%m-%d %H:%M:%S]'
+$MINIPROTDIR/miniprot -Iut16 --gff alyssum_v2_Mahnaz_2024_masked.mpi Brapa_chiifu_v41_gene20230413.gff3.pep.fa.gz > B.rapa.pep.gff
+echo "B. rapa done." | ts '[%Y-%m-%d %H:%M:%S]'
+$MINIPROTDIR/miniprot -Iut16 --gff alyssum_v2_Mahnaz_2024_masked.mpi GCF_000004255.2_v.1.0_protein.faa.gz > A.lyrata.pep.gff
+echo "A. lyrata done." | ts '[%Y-%m-%d %H:%M:%S]'
+$MINIPROTDIR/miniprot -Iut16 --gff alyssum_v2_Mahnaz_2024_masked.mpi A_alpina_proteins.fasta > A.alpina.pep.gff
+echo "A. alpina done." | ts '[%Y-%m-%d %H:%M:%S]'
+$MINIPROTDIR/miniprot -Iut16 --gff alyssum_v2_Mahnaz_2024_masked.mpi Aurinia_saxatilis_proteins.fasta > A.saxatilis.pep.gff
+echo "A. saxatilis done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+
+# move the output to user's DATADIR or exit in case of failure
+cp -v *.gff $DATADIR/protein_seqs_input/2_aligned | ts '[%Y-%m-%d %H:%M:%S]' || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: 10 min, 95% CPU, only 10 GB memory
+```
+
+## Assembly of transcripts from RNAseq alignment
+
+The assembled transcipts will be used to: - check Braker annotation
+visually using IGV, - extract sequences from them using AGAT and run
+Busco on them, - check the overlaps of them with annotated genes.
+
+stringtie to produce transcripts from aligned RNAseq reads - default
+parameters should be fine - set the number of threads
+
+``` sh
+# folder for results
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
+mkdir 4_assembled_transcripts
+```
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N stringtie_transcript_assembly
+#PBS -l select=1:ncpus=8:mem=28gb:scratch_local=1000gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq
+
+STRINGTIEDIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/stringtie
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -rv $DATADIR/3_aligned_reads/Alyssum_RNAseq_trimmed_merged.bam* $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+
+# running Stringtie
+$STRINGTIEDIR/stringtie -p 8 -o Alyssum_assembled_transcripts.gtf Alyssum_RNAseq_trimmed_merged.bam || { echo >&2 "Running of main command failed (with a code $?) !!"; exit 3; }
+
+echo "Stringtie assembly done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -v Alyssum_assembled_transcripts.gtf $DATADIR/4_assembled_transcripts || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Output files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+
+# Note to computational resources:
+# The script ran 7 min, with 13 % CPU time and 27 GB memory used. Big part of the time was probably copying of the files.
+```
+
+## Extraction of transcript sequences
+
+Extracted transcript sequences will be used to run Busco on them.
+
+### Extraction of transcript (mRNA) sequences by AGAT
+
+Older version of AGAT (v0.6.0) is pre-installed as Mamba module in
+Metacentrum. The installation through Conda/Mamba got stuck, so I used
+new version through Singularity.
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/rnaseq/4_assembled_transcripts
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# extraction of mRNA (UTRs + CDS)
+agat_sp_extract_sequences.pl -g Alyssum_assembled_transcripts.gtf -f /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t exon --merge -o Alyssum_assembled_transcripts.fasta | tee log_transcripts_AGAT.txt
+
+exit
+
+# Number of transcripts
+grep -P -c '\ttranscript\t' Alyssum_assembled_transcripts.gtf # 73975
+grep -c '>' Alyssum_assembled_transcripts.fasta # 73975
+
+# Counting of genes
+grep -P '\ttranscript\t' Alyssum_assembled_transcripts.gtf | cut -f 9 | sed 's/; transcript_id.*$//' | head -n 50
+grep -P '\ttranscript\t' Alyssum_assembled_transcripts.gtf | cut -f 9 | sed 's/; transcript_id.*$//' | sort | uniq | wc -l # 50178
+grep -P '\ttranscript\t' Alyssum_assembled_transcripts.gtf | cut -f 9 | sed 's/; transcript_id.*$//' | tail # the highest number is 50178
+```
+
+## Busco
+
+### Busco for proteins predicted by Braker
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N Busco_Braker_proteins
+#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=1000gb
+#PBS -l walltime=10:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -v $DATADIR/results_braker_alyssum_01/braker.aa $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+
+# activate Busco
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
+
+# run Busco
+busco --in braker.aa --mode proteins --lineage_dataset brassicales_odb10 --cpu 16
+
+echo "Main computation done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -vR * $DATADIR/busco_results || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Output files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: The script ran 16 min, with 24 % CPU time and 5 GB memory used.
+```
+
+### Busco for transcripts assembled from RNAseq
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N Busco_transcripts
+#PBS -l select=1:ncpus=8:mem=32gb:scratch_local=1000gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -v $DATADIR/rnaseq/4_assembled_transcripts/Alyssum_assembled_transcripts.fasta $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+
+# activate Busco
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
+
+# run Busco
+busco --in Alyssum_assembled_transcripts.fasta --mode transcriptome --lineage_dataset brassicales_odb10 --cpu 8
+
+echo "Main computation done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -vR BUSCO_* $DATADIR/busco_results || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Output files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: The script ran 33 min, with 53 % CPU time and 8 GB memory used.
+```
+
+### Busco for genome
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N Busco_genome
+#PBS -l select=1:ncpus=8:mem=32gb:scratch_local=1000gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -v $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+
+# activate Busco
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
+
+# run Busco
+busco --in alyssum_v2_Mahnaz_2024_masked.fa --mode genome --lineage_dataset brassicales_odb10 --cpu 8
+
+echo "Main computation done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -vR BUSCO_* $DATADIR/busco_results || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Output files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: The script ran 13 min, with 18 % CPU time and 12 GB memory used.
+```
+
+### Busco for CDS predicted by Braker
+
+This is just to check the difference between protein and transcript mode
+of Busco.
+
+``` sh
+### Script for Metacentrum
+
+#PBS -N Busco_Braker_CDS
+#PBS -l select=1:ncpus=4:mem=12gb:scratch_local=1000gb
+#PBS -l walltime=2:00:00 
+#PBS -m ae
+
+# define a DATADIR variable: directory where the input files are taken from and where output will be copied to
+DATADIR=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+
+# append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
+# this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually 
+echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATCHDIR" | ts '[%Y-%m-%d %H:%M:%S]' >> $PBS_O_WORKDIR/jobs_info.txt
+
+# test if scratch directory is set
+# if scratch directory is not set, issue error message and exit
+test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
+
+# copy files
+cp -v $DATADIR/results_braker_alyssum_01/braker.codingseq $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+
+echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+
+# move into scratch directory
+cd $SCRATCHDIR 
+
+
+# activate Busco
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
+
+# run Busco
+busco --in braker.codingseq --mode transcriptome --lineage_dataset brassicales_odb10 --cpu 4
+
+echo "Main computation done." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# move the output to user's DATADIR or exit in case of failure
+cp -vR BUSCO_* $DATADIR/busco_results || { echo >&2 "Result file(s) copying failed (with a code $?) !!"; exit 4; }
+
+echo "Output files copied." | ts '[%Y-%m-%d %H:%M:%S]'
+
+# clean the SCRATCH directory
+clean_scratch
+
+# Resources: The script ran 37 min, with 64 % CPU time and 5 GB memory used.
+```
+
+### Plot Busco results
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/
+
+mkdir summaries_BUSCO
+
+# copy summaries from all Busco results folders
+find BUSCO* -name "short_summary.specific.*.txt" -exec cp {} summaries_BUSCO/ \;
+
+# Rename some summaries (avoid dot in specific part of the name) so that Busco script will distinguish them
+cd summaries_BUSCO/
+mv short_summary.specific.brassicales_odb10.BUSCO_braker.aa.txt short_summary.specific.brassicales_odb10.BUSCO_braker_aa.txt
+mv short_summary.specific.brassicales_odb10.BUSCO_braker.codingseq.txt short_summary.specific.br
+assicales_odb10.BUSCO_braker_codingseq.txt
+
+
+# activate Busco
+source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
+
+# Use script to generate plot
+generate_plot.py -wd .
+```
+
+### Busco results
+
+#### Assembly
+
+    C:97.2%[S:88.2%,D:9.0%],F:0.2%,M:2.6%,n:4596,E:1.4%    
+    4468    Complete BUSCOs (C) (of which 63 contain internal stop codons)         
+    4053    Complete and single-copy BUSCOs (S)    
+    415 Complete and duplicated BUSCOs (D)     
+    9   Fragmented BUSCOs (F)              
+    119 Missing BUSCOs (M)             
+    4596    Total BUSCO groups searched 
+
+#### Transcripts (RNAseq reads aligned to genome and assembled to transcripts)
+
+    C:86.2%[S:51.1%,D:35.1%],F:3.1%,M:10.7%,n:4596     
+    3961    Complete BUSCOs (C)            
+    2350    Complete and single-copy BUSCOs (S)    
+    1611    Complete and duplicated BUSCOs (D)     
+    143 Fragmented BUSCOs (F)              
+    492 Missing BUSCOs (M)             
+    4596    Total BUSCO groups searched 
+
+#### Annotation (proteins predicted by Braker)
+
+    C:95.5%[S:76.8%,D:18.7%],F:0.2%,M:4.3%,n:4596      
+    4388    Complete BUSCOs (C)            
+    3528    Complete and single-copy BUSCOs (S)    
+    860 Complete and duplicated BUSCOs (D)     
+    7   Fragmented BUSCOs (F)              
+    201 Missing BUSCOs (M)             
+    4596    Total BUSCO groups searched 
+
+#### Annotation (CDS predicted by Braker)
+
+    C:95.4%[S:76.8%,D:18.6%],F:0.2%,M:4.4%,n:4596      
+    4386    Complete BUSCOs (C)            
+    3530    Complete and single-copy BUSCOs (S)    
+    856 Complete and duplicated BUSCOs (D)     
+    8   Fragmented BUSCOs (F)              
+    202 Missing BUSCOs (M)             
+    4596    Total BUSCO groups searched 
+
+#### Comments to results
+
+- Assembly has only slightly higher percentage of complete BUSCOs
+  (C:97.2%) compared to annotation (C:95.5%). This means that the
+  annotation is good. The difference can be probably ascribed mainly to
+  proteins with internal stop codons (E:1.4%), but I could not check
+  this, as I did not find how to retrieve genes with internal stop
+  codons from Busco results.
+- Transcriptome has lower percentage of complete BUSCOs (C:86.2%). This
+  probably means that there was not enough RNAseq data that would cover
+  all genes.
+
+### Trying to find the proteins with internal stop codons
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_alyssum_v2_Mahnaz_2024_masked.fa/run_brassicales_odb10/busco_sequences/single_copy_busco_sequences
+
+# converting from folded fasta to unfolded fasta for better counting and counting internal stop codons
+cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | grep '\*[[:alpha:]]' | wc -l # 0
+cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | head -n 50
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_alyssum_v2_Mahnaz_2024_masked.fa/run_brassicales_odb10/miniprot_output/translated_proteins/
+cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | grep '\*[[:alpha:]]' | wc -l # 0
+```
+
+## Intersect between gene models and aligned proteins
+
+[Bedtools
+intersect](https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html)
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+mkdir intersects
+cd intersects
+
+module avail bedtools
+module avail bedtools2/
+module load bedtools2/2.30.0-gcc-10.2.1-5acjqve
+
+ls ../protein_seqs_input/2_aligned/
+
+# Intersects with proteins from single species
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/A.thaliana.pep.gff -u -f 0.9 -r > braker_annotation_x_A.thaliana.pep.gff_intersect.tab
+
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/A.lyrata.pep.gff -u -f 0.9 -r > braker_annotation_x_A.lyrata.pep.gff_intersect.tab
+
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/B.rapa.pep.gff -u -f 0.9 -r > braker_annotation_x_B.rapa.pep.gff_intersect.tab
+
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/A.alpina.pep.gff -u -f 0.9 -r > braker_annotation_x_A.alpina.pep.gff_intersect.tab
+
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/A.saxatilis.pep.gff -u -f 0.9 -r > braker_annotation_x_A.saxatilis.pep.gff_intersect.tab
+
+# Intersect with all proteins together
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../protein_seqs_input/2_aligned/*  -u -f 0.9 -r > braker_annotation_x_all.pep.gff_intersect.tab
+```
+
+This command finds the intersects between Braker output (`-a`) and at
+least one of the aligned proteins (files in `-b`). It will report the
+genes in `-a` only once (option `-u`). The overlap should be at least 90
+% (`-f 0.9`) for both `-a` and `-b` (option `-r` as reciprocal).
+
+Checking the outputs
+
+``` sh
+grep -P -c "\tgene\t" ../results_braker_alyssum_01/braker.gtf # 32073
+grep -P -c "\tmRNA\t" ../protein_seqs_input/2_aligned/A.thaliana.pep.gff # 51291
+grep -P -c "\tgene\t" braker_annotation_x_A.thaliana.pep.gff_intersect.tab # 18676
+
+for FILE in braker_annotation_x_*
+do
+COUNT=$(grep -P -c "\tgene\t" $FILE)
+echo "$FILE $COUNT"
+done
+```
+
+Numbers of overlapping annotations:
+
+    braker_annotation_x_A.alpina.pep.gff_intersect.tab    16637
+    braker_annotation_x_A.lyrata.pep.gff_intersect.tab    18772
+    braker_annotation_x_A.saxatilis.pep.gff_intersect.tab 17095
+    braker_annotation_x_A.thaliana.pep.gff_intersect.tab  18676
+    braker_annotation_x_B.rapa.pep.gff_intersect.tab      17642
+    braker_annotation_x_all.pep.gff_intersect.tab         21660
+
+Comment: The phylogenetically closer species does not have higher
+intersect, probably due to worse annotation.
+
+## Intersect between gene models and assembled transcripts
+
+Again bedtools intersect.
+
+This time we do not use the `-r` option - the overlap should be at least
+90 % of Braker output, but not necesarilly of the Stringtie output. It
+is because the Stringtie tries to predict whole transcripts including
+UTRs.
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/intersects
+
+module load bedtools2/2.30.0-gcc-10.2.1-5acjqve
+
+ls ../rnaseq/4_assembled_transcripts/
+
+# Intersects with proteins from single species
+bedtools intersect -a ../results_braker_alyssum_01/braker.gtf -b ../rnaseq/4_assembled_transcripts/Alyssum_assembled_transcripts.gtf -u -f 0.9 > braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab
+
+# Number of genes predicted by Braker
+grep -P -c "\tgene\t" ../results_braker_alyssum_01/braker.gtf # 32073
+# Number of transcripts assembled from RNAseq
+grep -P -c "\ttranscript\t" ../rnaseq/4_assembled_transcripts/Alyssum_assembled_transcripts.gtf # 73975
+# Number of genes assembled from RNAseq
+# (Gene features are not annotated separately by StringTie, but there is a field gene_id for stranscripts which can be used.)
+grep -P "\ttranscript\t" ../rnaseq/4_assembled_transcripts/Alyssum_assembled_transcripts.gtf | sed -E 's/.*\tgene_id//' | sed -E 's/; transcript_id.*//' | sort -u | wc -l # 50178
+# Intersect of genes predicted by Braker and transcripts assembled from RNAseq
+grep -P -c "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab # 21841
+
+
+# intersect between two intersects: (1) intersect between annotation and protein alignments and (2) intersect between annotation and transcripts
+bedtools intersect -a braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab -b braker_annotation_x_all.pep.gff_intersect.tab -u -f 1.0 -r > braker_transcript_and_braker_protein_meta_intersect.tab
+grep -P -c "\tgene\t" braker_transcript_and_braker_protein_meta_intersect.tab # 16978
+# There should be '-f 1.0', because we are comparing genes, mRNAs and exons from the same Braker prediction. If there is 0.9, the number of genes is slightly higher than it should be, because it probably takes also some intersects of genes with transcripts or something like that.
+
+# Alternative way to calculate number of genes in intersect of intersects (metaintersect):
+comm -12 <(grep -P "\tgene\t" braker_annotation_x_all.pep.gff_intersect.tab | cut -f 9 | sort -u) <(grep -P "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab | cut -f 9 | sort -u) | wc -l # 16978
+```
+
+We will rather take union of the two intersects than the intersect of
+them as the “confident” set of gene models. These will be gene models
+that are either supported by RNAseq reads (more precisely assembled
+transcripts) or by proteins from related species.
+
+## Getting the list of “reliable” genes
+
+Genes that are either supported by RNAseq reads (more precisely
+assembled transcripts) or by proteins from related species.
+
+``` sh
+# checks
+grep -P "\tgene\t" braker_annotation_x_all.pep.gff_intersect.tab | cut -f 9 | sort | head -n 20
+grep -P "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab | cut -f 9 | sort | head -n 20
+
+cat <(grep -P "\tgene\t" braker_annotation_x_all.pep.gff_intersect.tab | cut -f 9) <(grep -P "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab | cut -f 9) | sort -u | head -n 20
+
+cat <(grep -P "\tgene\t" braker_annotation_x_all.pep.gff_intersect.tab | cut -f 9) <(grep -P "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab | cut -f 9) | sort -u | wc -l
+
+# List of reliable genes (union)
+cat <(grep -P "\tgene\t" braker_annotation_x_all.pep.gff_intersect.tab | cut -f 9) <(grep -P "\tgene\t" braker_annotation_x_Alyssum_assembled_transcripts.gtf_intersect.tab | cut -f 9) | sort -u > reliable_genes.txt
+
+wc -l reliable_genes.txt # 26523
+
+# The counts does fit:
+# 21841 (intersect with transcripts) + 21660 (intersect with proteins) - 16978 (metaintersect) = 26523 (union of intersects)
+```
+
+Recapitulation of the results:
+
+    Genes predicted by Braker                                                                              32073
+    Genes predicted by Braker supported by aligned proteins                                                21660
+    Genes predicted by Braker supported by transcripts assembled from RNAseq                               21841
+    Genes predicted by Braker supported by both aligned proteins and transcripts assembled from RNAseq     16978
+    Genes predicted by Braker supported by either aligned proteins or transcripts assembled from RNAseq    26523
+
+## Statistics of annotation using AGAT
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
+mkdir stat_annotation
+cd stat_annotation
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# basic statistics
+agat_sq_stat_basic.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_braker.gtf.txt
+
+# detailed statistics
+agat_sp_statistics.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_braker.gtf.txt
+```
+
+## Conversion to GFF
+
+[Page with links to GTF and GFF
+specs](https://www.ncbi.nlm.nih.gov/genbank/genomes_gff/)
+
+There should be script for conversion in Augustus, but it seems that it
+does not work well
+(<https://github.com/Gaius-Augustus/BRAKER/issues/275>). Thus, I will
+rather use AGAT.
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/
+mkdir annot_processing
+cd annot_processing
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+agat_convert_sp_gxf2gxf.pl --gff ../results_braker_alyssum_01/braker.gtf -o alyssum_01_braker.gff
+```
+
+## Changing IDs in R
+
+The following code snippets are in R.
+
+``` r
+setwd("D:/!ecolgen/annotations/Alyssum/Alyssum_assembly_from_Mahnaz_2024_05")
+
+# read the gff file
+gff.1 <- read.table(file = "annot_processing/alyssum_01_braker.gff", header = F, sep = "\t", comment.char = "#" 
+                     #, nrows = 1500
+                    )
+summary(gff.1)
+head(gff.1)
+gff.1[1:50, ]
+```
+
+What feature types are there?
+
+``` r
+# Types of features
+levels(as.factor(gff.1$V3))
+table(as.factor(gff.1$V3))
+
+# scaffold names
+levels(as.factor(gff.1$V1))
+```
+
+``` r
+# mRNA is there only for genes predicted by GeneMark.hmm3
+gff.1[grepl(pattern = "mRNA|transcript", x = gff.1$V3), ][1:40, ]
+# It seems that mRNA is redundant with transcript
+gff.1[grepl(pattern = "mRNA|transcript", x = gff.1$V3) & grepl(pattern = "GeneMark.hmm3", x = gff.1$V2), ][1:40, ]
+# It doesn't have any childs features.
+gff.1[grepl(pattern = "GeneMark.hmm3", x = gff.1$V2), ][1:40, ]
+
+# I will remove mRNA features.
+gff.2 <- gff.1[gff.1$V3 != "mRNA", ]
+dim(gff.1)
+dim(gff.2)
+```
+
+Changing IDs
+
+``` r
+gff.2[1:40, ]
+gff.2[grepl(pattern = "gene", x = gff.2$V3), ][1:40, ]
+
+# old gene names
+old.genes <- sub(pattern = "ID=", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V9"])
+scaff.genes <- gsub(pattern = "ptg000|[lc]$", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V1"])
+levels(as.factor(scaff.genes))
+
+# making new gene names
+vowel <- c("a", "e", "i", "o", "u")
+cons <- letters[!letters %in% c(vowel, "y")]
+# making syllables (consonant + vowel)
+syllable <- paste0(rep(x = cons, each = length(vowel)), rep(x = vowel, times = length(cons)))
+# When "y" is ommited, there are exactly 100 various syllables.
+length(syllable)
+# How many words of different length do we get?
+length(syllable)^(1:10)
+
+# 4 letter words
+syllables2 <- paste0(rep(x = syllable, each = length(syllable)), rep(x = syllable, times = length(syllable)))
+# 6 letter words
+syllables3 <- paste0(rep(x = syllable, each = length(syllables2)), rep(x = syllables2, times = length(syllable)))
+length(syllables3)
+
+# New gene names with species code and readable ID
+new.genes <- paste0("AM", scaff.genes, syllables3[1:length(old.genes)])
+
+# safe number of genes for later use
+(protein.coding.genes <- length(old.genes)) # 32073
+
+genes <- cbind.data.frame(old.genes, new.genes, scaff.genes)
+tail(genes)
+
+
+# Row numbers where data for one gene begin and end are needed (see the loop below)
+# GFF needs to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene).
+genes$rows <- grep(pattern = "gene", x = gff.2$V3)
+genes$end.rows <- NA
+genes$end.rows[1:(nrow(genes)-1)] <- genes$rows[2:nrow(genes)]-1
+genes$end.rows[nrow(genes)] <- nrow(gff.2)
+tail(genes)
+
+# New gff
+gff.3 <- gff.2
+
+## Loop to make new feature ids in GFF
+
+# Gene names will be changed to new ones.
+# Transcript names will be in the form gene_name.t1.
+# Other features ("exon", "intron", "cds", "start_codon", "stop_codon") will have IDs in form "exon-AM_transcript_id-1", where the last number will count exons in that particular transcript.
+
+# Warning:
+# This loops expect the GFF to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene, the same should be valid for transcripts of one gene). First, I tried to make it more universal, but it was always searching for the rows for one gene using grep, which was slow like a hell.
+for(i in 1:nrow(genes)) {
+  # Extract rows for one gene and its subfeatures.
+  descr1 <- gff.2[genes$rows[i]:genes$end.rows[i], "V9"]
+  
+  # grep version (slow)
+  # descr1 <- gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"]
+  
+  # Patterns defining how to find old gene name within different context.
+  patterns <- c(paste0("=", genes$old.genes[i], ";"),
+                paste0("=", genes$old.genes[i], "\\.t"),
+                paste0("=", genes$old.genes[i], "$")#,
+                #"ID=agat-exon-[[:digit:]]+;"
+                )
+  
+  # Strings defining what to exchange the previous patterns for
+  replacements <- c(paste0("=", genes$new.genes[i], ";"),
+                        paste0("=", genes$new.genes[i], ".t"),
+                        paste0("=", genes$new.genes[i])#,
+                    #paste0("ID=exon-", genes$new.genes[i], "-#;")
+                    )
+  
+  descr2 <- descr1
+  
+  # Loop exchanging patterns for replacements
+  for(j in 1:length(patterns)) {
+    descr2 <- gsub(pattern = patterns[j], 
+                 replacement = replacements[j], 
+                 x = descr2)
+  }
+  
+  # Loop to change IDs of features other than genes or transcripts
+  for(feature in c("exon", "intron", "cds", "start_codon", "stop_codon")) {
+    # Extract rows for one feature
+    extr.feature <- descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)]
+    # For some genes, there are no introns and it would make mess if we try to exchange something
+    if(length(extr.feature) > 0) {
+      # Transcript IDs
+      transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = extr.feature)
+      # Sequence of numbers for features within transcript and gene (1 to n for every transcript)
+      feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts)))
+      # Modify the feature IDs
+      mod.feature <- mapply(sub, 
+                            pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), 
+                            replacement = paste0("ID=", feature, "-", transcripts, "-", feat.numbers, ";"), 
+                            x = extr.feature, USE.NAMES = F)
+      # Replace rows with modified ones
+      descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)] <- mod.feature
+    }
+  }
+  
+  # Replace info in column 9 of GFF for the modified one
+  gff.3[genes$rows[i]:genes$end.rows[i], "V9"] <- descr2
+  # grep version (slow)
+  # gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"] <- descr2
+  
+  # For every 100 genes, print the counting
+  if(i %% 100 == 0) print(paste(i, "genes out of", nrow(genes), "done"))
+  # i=i+1
+}
+
+tail(gff.3, n = 40)
+# tail(gff.3, n = 100)
+# 
+# gff.3[grep(pattern = "=g365(;|\\.t|$)", x = gff.2$V9), ] 
+#   
+# i=1
+# i=2
+# i=4
+# i=50
+# i=65
+# feature = "exon"
+# feature = "intron"
+# gff.2[grepl(pattern = "exon", x = gff.2$V3), ][1:40, ]
+# tail(gff.2)
+# gff.4[grepl(pattern = "\\.t2", x = gff.2$V9), ][1:40, ]
+# gff.2[grep(pattern = "=g65(;|\\.t|$)", x = gff.2$V9), 2:9]
+# gff.2[grepl(pattern = "Parent=g[^8]*g.*", x = gff.2$V9), ]
+# 
+# gff.4 <- gff.3
+
+## Change of column 2
+gff.4 <- gff.3
+levels(as.factor(gff.3$V2))
+gff.4$V2 <- paste0("BRAKER-", gff.3$V2)
+levels(as.factor(gff.4$V2))
+
+
+# read the header of gff file
+gff.raw <- readLines(con = "annot_processing/alyssum_01_braker.gff" 
+                     , n = 1500
+                    )
+gff.header <- gff.raw[grep(pattern = "^#", x = gff.raw)]
+
+# add my lines to the header
+## Note: This header will not be used later, I will exchange it for better one while merging this annotation with annotation of unknown expressed features.
+gff.header.2 <- rbind(gff.header,
+                      "# Alyssum gmelinii genome annotation",
+                      "# 2024-07-31",
+                      "#")
+```
+
+``` r
+# write header to file
+write.table(x = gff.header.2, file = "annot_processing/alyssum_01_changed_IDs.gff", sep = "\t",
+            row.names = F, col.names = F, quote = F)
+# append the gff itself
+write.table(x = gff.4, file = "annot_processing/alyssum_01_changed_IDs.gff", sep = "\t",
+            row.names = F, col.names = F, quote = F, append = T)
+```
+
+## Statistics of annotation and extraction of protein and coding sequences using AGAT
+
+Again back to to Linux terminal.
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/stat_annotation
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# basic statistics
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_01_changed_IDs.gff.txt
+
+# detailed statistics
+agat_sp_statistics.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_01_changed_IDs.gff.txt
+```
+
+Basic statistics:
+
+    Type (3rd column)       Number  Size total (kb) Size mean (bp)  % of the genome 
+    cds                     173921         42686.71         245.44             6.25
+    exon                    173921         42686.71         245.44             6.25
+    gene                     32073         62652.25        1953.43             9.17
+    intron                  138011         29917.95         216.78             4.38
+    start_codon              35902           107.68           3.00             0.02
+    stop_codon               35902           107.69           3.00             0.02
+    transcript               35910         72604.66        2021.85            10.62
+    Total                   625640        250763.65         400.81            36.70
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+# Protein sequences
+agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_01_changed_IDs_proteins.fasta
+# CDS
+agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_01_changed_IDs_cds.fasta
+
+# counting the number of sequences
+grep -c ">" alyssum_01_changed_IDs_proteins.fasta
+grep -c ">" alyssum_01_changed_IDs_cds.fasta
+
+
+# converting from folded fasta to unfolded fasta for better counting and checking for internal stop codons
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < alyssum_01_changed_IDs_proteins.fasta | grep \*[[:alpha:]] | wc -l
+# 0
+```
+
+# Adding unknown expressed features
+
+I found that there are many regions in genome which are expressed
+(RNAseq data are mapping there), but there are no annotated genes.
+Braker did not annotate there any genes, as there are no reasonable open
+reading frames (at least in the cases that I explored). To get at least
+some annotation of these regions, I will use the transcripts (assembled
+by StringTie) that do not overlap with the protein-coding genes
+predicted by Braker. These might be various kinds of non-coding RNA
+(ncRNA) genes like lncRNA genes, tRNA genes etc. There will probably not
+be annotated miRNA genes as these are too short to be included in the
+transcripts assembled by StringTie.
+
+I will use [Bedtools
+subtract](https://bedtools.readthedocs.io/en/latest/content/tools/subtract.html).
+I will use -A option to get only transcripts with no overlap with Braker
+annotation.
+
+#### Note for future
+
+Some tools used to annotate noncoding genes in A. thaliana genomes are
+descibed in this publication:
+
+Lian, Qichao, Bruno Huettel, Birgit Walkemeier, Baptiste Mayjonade,
+Céline Lopez-Roques, Lisa Gil, Fabrice Roux, Korbinian Schneeberger, and
+Raphael Mercier. “A Pan-Genome of 69 Arabidopsis Thaliana Accessions
+Reveals a Conserved Genome Structure throughout the Global Species
+Range.” Nature Genetics 56, no. 5 (May 2024): 982–91.
+<https://doi.org/10.1038/s41588-024-01715-9>.
+
+It might be good to try them.
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+
+module load bedtools2/2.30.0-gcc-10.2.1-5acjqve
+
+ls ../rnaseq/4_assembled_transcripts/
+
+# Get assembled transcripts with no overlap with Braker annotation. I will use them as unknown expressed features.
+bedtools subtract -a ../rnaseq/4_assembled_transcripts/Alyssum_assembled_transcripts.gtf -b alyssum_01_changed_IDs.gff -A > Alyssum_assembled_transcripts_with_no_annotation_overlap.gtf
+
+grep -P -c "\ttranscript\t" Alyssum_assembled_transcripts_with_no_annotation_overlap.gtf # 30166
+
+# There are also exons without parental transcripts (when only part of the transcript overlaps with annotation). I will have to remove them.
+
+# make a keep list with IDs of transcripts
+grep -P "\ttranscript\t" Alyssum_assembled_transcripts_with_no_annotation_overlap.gtf | sed -E 's/(^.*; transcript_id ")|("; cov.*$)//g' > Alyssum_assembled_transcripts_with_no_annotation_overlap.txt
+
+wc -l Alyssum_assembled_transcripts_with_no_annotation_overlap.txt # 30166
+
+### Filtering assembled transcripts based on keep list
+# This should ensure that there will be no orphan exons.
+
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# Filter based on keep list and convert to GFF
+agat_sp_filter_feature_from_keep_list.pl --type transcript,RNA --gff Alyssum_assembled_transcripts_with_no_annotation_overlap.gtf --keep_list Alyssum_assembled_transcripts_with_no_annotation_overlap.txt -o Alyssum_assembled_transcripts_with_no_annotation_overlap_almost_clean.gff
+
+grep -P -c "\ttranscript\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_almost_clean.gff # 30166
+grep -P -c "\tRNA\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_almost_clean.gff # 703
+# For genes where some transcripts overlap with Braker annotation and some not, sometimes the overlapping exons are kept by AGAT and are asigned a RNA feature. I will need to remove them in following steps.
+
+# Make a kill list of IDs of RNA features that I want to remove.
+grep -P "\tRNA\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_almost_clean.gff | sed -E 's/^.*;transcript_id=//g' > transcript_kill_list.txt
+
+agat_sp_filter_feature_from_kill_list.pl --gff Alyssum_assembled_transcripts_with_no_annotation_overlap_almost_clean.gff --kill_list transcript_kill_list.txt -o Alyssum_assembled_transcripts_with_no_annotation_overlap_clean.gff
+
+grep -P -c "\ttranscript\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_clean.gff # 30166
+grep -P -c "\tRNA\t" Alyssum_assembled_transcripts_with_no_annotation_overlap_clean.gff # 0
+# Now the RNA features and their exons should be removed, there shouldn't be any transcripts overlapping with Braker annotation.
+```
+
+## Changing IDs of unknown expressed features in R
+
+Back to R again.
+
+``` r
+setwd("D:/!ecolgen/annotations/Alyssum/Alyssum_assembly_from_Mahnaz_2024_05")
+
+# read the gff file
+gff.1 <- read.table(file = "annot_processing/Alyssum_assembled_transcripts_with_no_annotation_overlap_clean.gff", header = F, sep = "\t", comment.char = "#" 
+                     #, nrows = 1500
+                    )
+summary(gff.1)
+head(gff.1)
+gff.1[1:50, ]
+```
+
+### What feature types are there?
+
+``` r
+# Types of features
+levels(as.factor(gff.1$V3))
+table(as.factor(gff.1$V3))
+
+# scaffold names
+levels(as.factor(gff.1$V1))
+```
+
+### Changing IDs
+
+``` r
+gff.2 <- gff.1
+
+# Whole column 2 to "StringTie"
+gff.2[, 2] <- "StringTie"
+
+gff.2[1:40, ]
+
+# For features "gene", remove cov, fPKM, tPM and transcript_id, because AGAT copied it just from the first transcript
+gff.2[grepl(pattern = "gene", x = gff.2$V3), 9][1:40]
+# For some genes, there is also "exon_number", which I will also remove.
+gff.2[grepl(pattern = "STRG.378", x = gff.2$V9), ][1:40, ]
+gff.1[grepl(pattern = "STRG.1415", x = gff.2$V9), ][1:40, ]
+
+gene.col9.1 <- gff.2[grepl(pattern = "gene", x = gff.2$V3), 9]
+gene.col9.2 <- gsub(pattern = ";*cov=[0-9.]+;*", replacement = ";", x = gene.col9.1)
+gene.col9.3 <- gsub(pattern = ";*fPKM=[0-9.]+;*", replacement = ";", x = gene.col9.2)
+gene.col9.4 <- gsub(pattern = ";*tPM=[0-9.]+;*", replacement = ";", x = gene.col9.3)
+gene.col9.5 <- gsub(pattern = ";*exon_number=[0-9.]+;*", replacement = ";", x = gene.col9.4)
+gene.col9.6 <- gsub(pattern = ";*transcript_id=STRG[0-9.]+;*", replacement = "", x = gene.col9.5)
+gff.2[grepl(pattern = "gene", x = gff.2$V3), 9] <- gene.col9.6
+
+gff.2[1:40, ]
+
+# old gene names
+old.genes <- gsub(pattern = "ID=|;gene_id.*$", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V9"])
+scaff.genes <- gsub(pattern = "ptg000|[lc]$", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V1"])
+levels(as.factor(scaff.genes))
+
+# making new gene names
+vowel <- c("a", "e", "i", "o", "u")
+cons <- letters[!letters %in% c(vowel, "y")]
+# making syllables (consonant + vowel)
+syllable <- paste0(rep(x = cons, each = length(vowel)), rep(x = vowel, times = length(cons)))
+# When "y" is ommited, there are exactly 100 various syllables.
+length(syllable)
+# How many words of different length do we get?
+length(syllable)^(1:10)
+
+# 4 letter words
+syllables2 <- paste0(rep(x = syllable, each = length(syllable)), rep(x = syllable, times = length(syllable)))
+# 6 letter words
+syllables3 <- paste0(rep(x = syllable, each = length(syllables2)), rep(x = syllables2, times = length(syllable)))
+length(syllables3)
+
+# New gene names with species code and readable ID
+# use protein.coding.genes saved when assigning new IDs to protein coding genes
+new.genes <- paste0("AM", scaff.genes, syllables3[(protein.coding.genes + 1):(protein.coding.genes + length(old.genes))])
+
+genes <- cbind.data.frame(old.genes, new.genes, scaff.genes)
+head(genes)
+tail(genes)
+
+
+# Row numbers where data for one gene begin and end are needed (see the loop below)
+# GFF needs to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene).
+genes$rows <- grep(pattern = "gene", x = gff.2$V3)
+genes$end.rows <- NA
+genes$end.rows[1:(nrow(genes)-1)] <- genes$rows[2:nrow(genes)]-1
+genes$end.rows[nrow(genes)] <- nrow(gff.2)
+tail(genes)
+
+# New gff
+gff.3 <- gff.2
+
+## Loop to make new feature ids in GFF
+
+# Gene names will be changed to new ones.
+# Transcript names will be in the form gene_name.t1.
+# Other features ("exon", "intron", "cds", "start_codon", "stop_codon") will have IDs in form "exon-AM_transcript_id-1", where the last number will count exons in that particular transcript.
+
+# Warning:
+# This loops expect the GFF to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene, the same should be valid for transcripts of one gene). First, I tried to make it more universal, but it was always searching for the rows for one gene using grep, which was slow like a hell.
+for(i in 1:nrow(genes)) {
+  # Extract rows for one gene and its subfeatures.
+  descr1 <- gff.2[genes$rows[i]:genes$end.rows[i], "V9"]
+  
+  # grep version (slow)
+  # descr1 <- gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"]
+  
+  # Patterns defining how to find old gene name within different context.
+  patterns <- c(paste0("=", genes$old.genes[i], ";"),
+                paste0("=", genes$old.genes[i], "\\."),
+                paste0("=", genes$old.genes[i], "$")#,
+                #"ID=agat-exon-[[:digit:]]+;"
+                )
+  
+  # Strings defining what to exchange the previous patterns for
+  replacements <- c(paste0("=", genes$new.genes[i], ";"),
+                        paste0("=", genes$new.genes[i], ".t"),
+                        paste0("=", genes$new.genes[i])#,
+                    #paste0("ID=exon-", genes$new.genes[i], "-#;")
+                    )
+  
+  descr2 <- descr1
+  
+  # Loop exchanging patterns for replacements
+  for(j in 1:length(patterns)) {
+    descr2 <- gsub(pattern = patterns[j], 
+                 replacement = replacements[j], 
+                 x = descr2)
+  }
+  
+  # Loop to change IDs of features other than genes or transcripts
+  for(feature in c("exon", "intron", "cds", "start_codon", "stop_codon")) {
+    # Extract rows for one feature
+    extr.feature <- descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)]
+    # For some genes, there are no introns and it would make mess if we try to exchange something
+    if(length(extr.feature) > 0) {
+      # Transcript IDs
+      transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = extr.feature)
+      # Sequence of numbers for features within transcript and gene (1 to n for every transcript)
+      feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts)))
+      # Modify the feature IDs
+      mod.feature <- mapply(sub, 
+                            pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), 
+                            replacement = paste0("ID=", feature, "-", transcripts, "-", feat.numbers, ";"), 
+                            x = extr.feature, USE.NAMES = F)
+      # Replace rows with modified ones
+      descr2[grep(pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), x = descr2)] <- mod.feature
+    }
+  }
+  
+  # Replace info in column 9 of GFF for the modified one
+  gff.3[genes$rows[i]:genes$end.rows[i], "V9"] <- descr2
+  # grep version (slow)
+  # gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"] <- descr2
+  
+  # For every 100 genes, print the counting
+  if(i %% 100 == 0) print(paste(i, "genes out of", nrow(genes), "done"))
+  # i=i+1
+}
+
+tail(gff.3, n = 40)
+# tail(gff.3, n = 100)
+# 
+# gff.3[grep(pattern = "=g365(;|\\.t|$)", x = gff.2$V9), ] 
+#   
+# i=1
+# i=2
+
+
+gff.4 <- gff.3
+
+# Changing feature names
+gff.4$V3[gff.4$V3 == "gene"] <- "ncRNA_gene"
+gff.4$V3[gff.4$V3 == "transcript"] <- "ncRNA"
+
+levels(as.factor(gff.4$V3))
+
+
+# read the header of gff file
+gff.raw <- readLines(con = "annot_processing/Alyssum_assembled_transcripts_with_no_annotation_overlap_clean.gff" 
+                     , n = 1500
+                    )
+gff.header <- gff.raw[grep(pattern = "^#", x = gff.raw)]
+
+# add my lines to the header
+# note: this header will not be used in the end
+gff.header.2 <- rbind(gff.header,
+                      "# Alyssum gmelinii (A. montanum group) genome annotation",
+                      "# 2024-09-06",
+                      "#"
+)
+```
+
+### Writing GFF file
+
+``` r
+# write header to file
+write.table(x = gff.header.2, 
+            file = "annot_processing/Alyssum_assembled_transcripts_with_no_annotation_overlap_clean_changed_IDs.gff", 
+            sep = "\t",
+            row.names = F, col.names = F, quote = F)
+# append the gff itself
+write.table(x = gff.4, 
+            file = "annot_processing/Alyssum_assembled_transcripts_with_no_annotation_overlap_clean_changed_IDs.gff", 
+            sep = "\t",
+            row.names = F, col.names = F, quote = F, append = T)
+```
+
+## Merging annotations
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# Complement annotations
+# The file with unknown expressed features will be used as a reference, so the header of this file will be kept.
+agat_sp_complement_annotations.pl --ref Alyssum_assembled_transcripts_with_no_annotation_overlap_clean_changed_IDs.gff --add alyssum_01_changed_IDs.gff -o alyssum_annotation_01.gff
+
+grep -P -c "\tgene\t" alyssum_annotation_01.gff # 32073
+grep -P -c "\ttranscript\t" alyssum_annotation_01.gff # 35910
+grep -P -c "\tRNA\t" alyssum_annotation_01.gff # 0
+grep -P -c "\tncRNA_gene\t" alyssum_annotation_01.gff # 23116
+grep -P -c "\tncRNA\t" alyssum_annotation_01.gff # 30166
+
+# Check numbers of lines (without header)
+grep -P -v -c "^#" alyssum_01_changed_IDs.gff # 625640
+grep -P -v -c "^#" Alyssum_assembled_transcripts_with_no_annotation_overlap_clean_changed_IDs.gff # 129570
+grep -P -v -c "^#" alyssum_annotation_01.gff # 755210
+```
+
+``` r
+# Check whether the number of lines of merged annotation is sum of the files that were merged
+625640 + 129570 == 755210 # TRUE
+```
+
+## Statistics of annotation and extraction of protein and coding sequences using AGAT
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/stat_annotation
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# basic statistics
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_annotation_01.gff.txt
+
+# detailed statistics
+agat_sp_statistics.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_annotation_01.gff.txt
+```
+
+    Type (3rd column)   Number  Size total (kb) Size mean (bp)  % of the genome
+    cds               173921    42686.71          245.44            6.25
+    exon                250209  63637.83          254.34            9.31
+    gene                32073     62652.25        1953.43           9.17
+    intron            138011    29917.95          216.78            4.38
+    ncrna               30166     53606.29        1777.04           7.84
+    ncrna_gene        23116   37393.54        1617.65           5.47
+    start_codon       35902   107.68            3.00              0.02
+    stop_codon        35902   107.69            3.00              0.02
+    transcript        35910   72604.66        2021.85           10.62
+    Total               755210  362714.59         480.28            53.08
+
+The proteins and CDSs should be same as for alyssum_01_changed_IDs.gff,
+but I will extract it again.
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# Protein sequences
+agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_annotation_01_proteins.fasta
+# CDS
+agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_annotation_01_cds.fasta
+
+# counting the number of sequences
+grep -c ">" alyssum_annotation_01_proteins.fasta
+grep -c ">" alyssum_annotation_01_cds.fasta
+
+
+# converting from folded fasta to unfolded fasta for better counting and checking for internal stop codons
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < alyssum_annotation_01_proteins.fasta | grep \*[[:alpha:]] | wc -l
+# 0
+```
+
+# Changing IDs of all genes and features based on Sonia’s request
+
+Sonia did not like the gene IDs that I used, so I will change it again.
+
+``` r
+setwd("D:/!ecolgen/annotations/Alyssum/Alyssum_assembly_from_Mahnaz_2024_05")
+
+# read the gff file
+gff.1 <- read.table(file = "annot_processing/alyssum_annotation_01.gff", header = F, sep = "\t", comment.char = "#" 
+                     #, nrows = 1500
+                    )
+summary(gff.1)
+head(gff.1)
+gff.1[1:50, ]
+```
+
+### What feature types are there?
+
+``` r
+# Types of features
+levels(as.factor(gff.1$V3))
+table(as.factor(gff.1$V3))
+
+# scaffold names
+levels(as.factor(gff.1$V1))
+```
+
+### Changing IDs
+
+``` r
+gff.2 <- gff.1
+
+
+# old gene names
+old.genes <- gsub(pattern = "ID=|;gene_id.*$", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V9"])
+scaff.genes <- gsub(pattern = "ptg000|[lc]$", replacement = "", x = gff.2[grepl(pattern = "gene", x = gff.2$V3), "V1"])
+levels(as.factor(scaff.genes))
+
+# New gene names with species code and readable ID
+# use protein.coding.genes saved when assigning new IDs to protein coding genes
+new.genes <- paste0("Ag", scaff.genes, "G", formatC(x = 1:length(old.genes), width = 5, flag = "0"), "00")
+
+# Checking if all gene names have the same length
+table(nchar(new.genes))
+new.genes[9990:10100]
+
+genes <- cbind.data.frame(old.genes, new.genes, scaff.genes)
+head(genes)
+tail(genes)
+
+
+# Row numbers where data for one gene begin and end are needed (see the loop below)
+# GFF needs to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene).
+genes$rows <- grep(pattern = "gene", x = gff.2$V3)
+genes$end.rows <- NA
+genes$end.rows[1:(nrow(genes)-1)] <- genes$rows[2:nrow(genes)]-1
+genes$end.rows[nrow(genes)] <- nrow(gff.2)
+tail(genes)
+
+# New gff
+gff.3 <- gff.2
+
+## Loop to make new feature ids in GFF
+
+# Gene names will be changed to new ones.
+# Transcript names will be in the form gene_name.t1.
+# Other features ("exon", "intron", "cds", "start_codon", "stop_codon") will have IDs in form "exon-AM_transcript_id-1", where the last number will count exons in that particular transcript.
+
+# Warning:
+# This loops expect the GFF to be ordered (rows for one gene and its subfeatures should't be interspersed with data for other gene, the same should be valid for transcripts of one gene). First, I tried to make it more universal, but it was always searching for the rows for one gene using grep, which was slow like a hell.
+for(i in 1:nrow(genes)) {
+  # Extract rows for one gene and its subfeatures.
+  descr1 <- gff.2[genes$rows[i]:genes$end.rows[i], "V9"]
+  
+  # Change the old gene ID for new gene ID
+  descr2 <- gsub(pattern = genes$old.genes[i], 
+                 replacement = genes$new.genes[i], 
+                 x = descr1)
+  
+  # Replace info in column 9 of GFF for the modified one
+  gff.3[genes$rows[i]:genes$end.rows[i], "V9"] <- descr2
+  # grep version (slow)
+  # gff.3[grep(pattern = paste0("=", genes$old.genes[i], "(;|\\.t|$)"), x = gff.2$V9), "V9"] <- descr2
+  
+  # For every 100 genes, print the counting
+  if(i %% 100 == 0) print(paste(i, "genes out of", nrow(genes), "done"))
+  # i=i+1
+}
+
+tail(gff.3, n = 40)
+# tail(gff.3, n = 100)
+# 
+# gff.3[grep(pattern = "=g365(;|\\.t|$)", x = gff.2$V9), ] 
+#   
+# i=1
+# i=2
+
+
+gff.4 <- gff.3
+
+levels(as.factor(gff.4$V3))
+
+
+# read the header of gff file
+gff.raw <- readLines(con = "annot_processing/alyssum_annotation_01.gff" 
+                     , n = 1500
+                    )
+gff.header <- gff.raw[grep(pattern = "^#", x = gff.raw)]
+
+# new header with new date
+gff.header.3 <- c("##gff-version 3",
+                  "# Alyssum gmelinii (A. montanum group) genome annotation",
+                  "# 2024-11-05",
+                  "#",
+                  "# Genome assembly",
+                  "#",
+                  "# File alyssum_v2_Mahnaz_2024_masked.fa",
+                  "# # contigs (>= 0 bp)         168",
+                  "# # contigs (>= 1000 bp)      168",
+                  "# # contigs (>= 5000 bp)      168",
+                  "# # contigs (>= 10000 bp)     168",
+                  "# # contigs (>= 25000 bp)     163",
+                  "# # contigs (>= 50000 bp)     108",
+                  "# Total length (>= 0 bp)      683338063",
+                  "# Total length (>= 1000 bp)   683338063",
+                  "# Total length (>= 5000 bp)   683338063",
+                  "# Total length (>= 10000 bp)  683338063",
+                  "# Total length (>= 25000 bp)  683223685",
+                  "# Total length (>= 50000 bp)  681172935",
+                  "# # contigs                   168",
+                  "# Largest contig              33309422",
+                  "# Total length                683338063",
+                  "# GC (%)                      38.45",
+                  "# N50                         12254332",
+                  "# N75                         7380926",
+                  "# L50                         17",
+                  "# L75                         35",
+                  "# # N's per 100 kbp           0.00",
+                  "#",
+                  "# Annotation",
+                  "#",
+                  "# Annotation was generated by Milos Duchoslav (Group of Filip Kolar, ",
+                  "# Department of Botany, Faculty of Science, Charles University, Prague, Czechia).",
+                  "# Email: duchmil[at]gmail.com",
+                  "# ",
+                  "# Protein coding genes were predicted by",
+                  "# BRAKER version 3.0.8 based on RNA-seq data from Alyssum gmelinii ",
+                  "# and OrthoDB proteins from the whole Viridiplantae.",
+                  "# ",
+                  "# To include non-coding RNA genes and similar features,",
+                  "# transcripts assembled from RNA-seq data using StringTie v2.2.3",
+                  "# were filtered using Bedtools v2.30.0 to keep only those that",
+                  "# do not have any overlap with protein-coding gene annotations.",
+                  "# They were included in annotation as 'ncRNA_gene' and 'ncRNA'.",
+                  "# However, they are simply regions that are transcribed and ",
+                  "# probably are not protein-coding genes.",
+                  "# ",
+                  "# GTF converted to GFF using AGAT v1.4.0.",
+                  "# Feature IDs changed using custom R script.",
+                  "# ",
+                  "# Annotation statistics",
+                  "# ",
+                  "# Type (3rd column) Number Size total (kb) Size mean (bp) % of the genome",
+                  "# cds               173921        42686.71         245.44            6.25",
+                  "# exon              250209        63637.83         254.34            9.31",
+                  "# gene               32073        62652.25        1953.43            9.17",
+                  "# intron            138011        29917.95         216.78            4.38",
+                  "# ncrna              30166        53606.29        1777.04            7.84",
+                  "# ncrna_gene         23116        37393.54        1617.65            5.47",
+                  "# start_codon        35902          107.68           3.00            0.02",
+                  "# stop_codon         35902          107.69           3.00            0.02",
+                  "# transcript         35910        72604.66        2021.85           10.62",
+                  "# Total             755210       362714.59         480.28           53.08",
+                  "# ",
+                  "# Scripts and description of the annotation procedure is at:",
+                  "# https://github.com/mduchoslav/Alyssum_serpentine_paper",
+                  "# "
+)
+
+# gff.header.2 <- gff.header
+```
+
+### Writing GFF file
+
+``` r
+# write header to file
+write.table(x = gff.header.3, 
+            file = "annot_processing/alyssum_v2_annotation.gff", 
+            sep = "\t",
+            row.names = F, col.names = F, quote = F)
+# append the gff itself
+write.table(x = gff.4, 
+            file = "annot_processing/alyssum_v2_annotation.gff", 
+            sep = "\t",
+            row.names = F, col.names = F, quote = F, append = T)
+```
+
+## Statistics of annotation and extraction of protein and coding sequences using AGAT
+
+``` sh
+# interactive job
+qsub -I -l select=1:ncpus=1:mem=8gb:scratch_local=10gb -l walltime=2:00:00
+
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/stat_annotation
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# basic statistics
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_v2_annotation.gff.txt
+
+# detailed statistics
+agat_sp_statistics.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_v2_annotation.gff.txt
+```
+
+    Type (3rd column) Number Size total (kb) Size mean (bp) % of the genome
+    cds               173921        42686.71         245.44            6.25
+    exon              250209        63637.83         254.34            9.31
+    gene               32073        62652.25        1953.43            9.17
+    intron            138011        29917.95         216.78            4.38
+    ncrna              30166        53606.29        1777.04            7.84
+    ncrna_gene         23116        37393.54        1617.65            5.47
+    start_codon        35902          107.68           3.00            0.02
+    stop_codon         35902          107.69           3.00            0.02
+    transcript         35910        72604.66        2021.85           10.62
+    Total             755210       362714.59         480.28           53.08
+
+The proteins and CDSs should be same as for alyssum_01_changed_IDs.gff
+and alyssum_annotation_01.gff, just the IDs changed. I will extract it
+again.
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+# run the container
+singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
+
+# Protein sequences
+agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_v2_annotation_proteins.fasta
+# CDS
+agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_v2_annotation_cds.fasta
+
+# counting the number of sequences
+grep -c ">" alyssum_v2_annotation_proteins.fasta # 35910
+grep -c ">" alyssum_v2_annotation_cds.fasta # 35910
+
+
+# converting from folded fasta to unfolded fasta for better counting and checking for internal stop codons
+awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < alyssum_v2_annotation_proteins.fasta | grep \*[[:alpha:]] | wc -l
+# 0
+```
+
+# To do
+
+- Change the paper citation for the final/preprint
+- Include SRA IDs of RNAseq data

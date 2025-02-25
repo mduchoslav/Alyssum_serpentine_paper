@@ -1,7 +1,7 @@
 SW installation for Annotation of *Alyssum gmelinii* genome
 ================
-Milos Duchoslav
-2025-02-24
+Miloš Duchoslav
+2025-02-25
 
 - [FastQC](#fastqc)
 - [MultiQC](#multiqc)
@@ -12,6 +12,9 @@ Milos Duchoslav
 - [AGAT](#agat)
 - [Busco](#busco)
 - [Bedtools](#bedtools)
+- [Miniprot](#miniprot)
+- [StringTie](#stringtie)
+- [R](#r)
 
 ## FastQC
 
@@ -30,6 +33,8 @@ unzip fastqc_v0.12.1.zip
 ```
 
 ### FastQC testing
+
+The data is from different project.
 
 ``` sh
 # add module with Java
@@ -321,4 +326,41 @@ module load bedtools2/2.30.0-gcc-10.2.1-5acjqve
 
 bedtools --version
 # bedtools v2.30.0
+```
+
+## Miniprot
+
+Version: 0.13-r248
+
+``` sh
+# download Miniprot and compile
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+git clone https://github.com/lh3/miniprot
+cd miniprot && make
+
+./miniprot --version
+# 0.13-r248
+```
+
+## StringTie
+
+Version: 2.2.3
+
+``` sh
+# Installing StringTie
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly
+git clone https://github.com/gpertea/stringtie
+cd stringtie
+make release
+
+./stringtie --version
+# 2.2.3
+```
+
+## R
+
+Version: 4.3.3
+
+``` r
+R.Version()
 ```
