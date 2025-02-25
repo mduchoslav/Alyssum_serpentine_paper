@@ -1,12 +1,19 @@
 ---
-title: "Annotation of Alyssum gmelinii genome"
-author: "Milos Duchoslav"
+title: "Annotation of *Alyssum gmelinii* genome"
+author: "Miloš Duchoslav"
 date: "2024-2025"
-output: html_document
+output:
+  github_document:
+    toc: true
+    toc_depth: 2
 editor_options: 
   chunk_output_type: console
 ---
 
+```{r setup, include=FALSE}
+# Setting NO evaluation of code chunks as default
+knitr::opts_chunk$set(eval = FALSE)
+```
 
 # Introduction
 
