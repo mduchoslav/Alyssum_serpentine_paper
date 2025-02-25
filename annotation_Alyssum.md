@@ -313,7 +313,7 @@ instructions](https://github.com/Gaius-Augustus/BRAKER#braker-with-rna-seq-and-p
 “GeneMark-ETP utilizes Stringtie2 to assemble RNA-Seq data, which
 requires that the aligned reads (BAM files) contain the XS (strand) tag
 for spliced reads. Therefore, if you align your reads with HISAT2, you
-must enable the –dta option.”
+must enable the `--dta` option.”
 
 [HISAT2 manual](http://daehwankimlab.github.io/hisat2/manual/) for
 reference.
