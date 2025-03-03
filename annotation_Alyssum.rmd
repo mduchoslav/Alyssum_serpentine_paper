@@ -36,11 +36,17 @@ The SW installation instructions and versions of SW used is described in [Instal
 # Preparation of inputs for annotation
 
 ## Genome assembly
+
+The file with genome assembly was originally named *alyssum_v2_Mahnaz_2024_masked.fa*. I ran everything with that name. In the end, I renamed it to *Alyssum_gmelinii_genome_softmasked.fa* to make it clear for the publishing. I also renamed it throughout this file.
+
 ```{sh}
 # Copying assembly from Mahnaz
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
 cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024.fa .
 cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024_masked.fa .
+
+# renaming of assembly
+mv alyssum_v2_Mahnaz_2024_masked.fa Alyssum_gmelinii_genome_softmasked.fa
 
 ```
 
@@ -296,7 +302,7 @@ hisat2 --version
 mkdir hisat2_index
 
 # Build the index of refrence seqeunce
-hisat2-build -f -p 4 alyssum_v2_Mahnaz_2024_masked.fa hisat2_index/alyssum_v2_masked
+hisat2-build -f -p 4 Alyssum_gmelinii_genome_softmasked.fa hisat2_index/alyssum_v2_masked
 # This took less than 10 min.
 ```
 
@@ -440,12 +446,12 @@ AM08N_YL        69.47% overall alignment rate       12755339 (60.27%) aligned co
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
 
 # Current assembly
-grep -c '>' alyssum_v2_Mahnaz_2024_masked.fa # 168
+grep -c '>' Alyssum_gmelinii_genome_softmasked.fa # 168
 # Previous version
 grep -c '>' /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_100ctgFromCurated.masked.fasta # 100
 
 module load quast
-quast.py alyssum_v2_Mahnaz_2024_masked.fa
+quast.py Alyssum_gmelinii_genome_softmasked.fa
 less quast_results/results_2024_06_21_15_44_33/report.txt
 
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly
@@ -453,7 +459,7 @@ module load seqtk
 # info about columns
 seqtk comp
 # info about sequences
-seqtk comp alyssum_v2_Mahnaz_2024_masked.fa | head -n 50 | column -t
+seqtk comp Alyssum_gmelinii_genome_softmasked.fa | head -n 50 | column -t
 seqtk comp /storage/brno12-cerit/home/duchmil/annotations/old_version_01_alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_100ctgFromCurated.masked.fasta | head -n 50 | column -t
 
 ```
@@ -530,7 +536,7 @@ test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
 # copy files
 cp -r $DATADIR/rnaseq/3_aligned_reads/Alyssum_RNAseq_trimmed_merged.bam $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 cp -r $DATADIR/protein_seqs_input/1_downloaded/Viridiplantae.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
-cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/genome_assembly/Alyssum_gmelinii_genome_softmasked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 
 
 # move into scratch directory
@@ -540,7 +546,7 @@ mkdir results_braker_alyssum_01
 # running BRAKER
 export BRAKER_SIF=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw/braker3.sif
 
-singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=alyssum_v2_Mahnaz_2024_masked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_01
+singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=Alyssum_gmelinii_genome_softmasked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_01
 # Note: Protein sequences shouldn't be compressed. It should be plain fasta.
 
 
@@ -583,7 +589,7 @@ test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
 # copy files
 cp -r $DATADIR/rnaseq/3_aligned_reads/Alyssum_RNAseq_trimmed_merged.bam $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 # cp -r $DATADIR/protein_seqs_input/1_downloaded/Viridiplantae.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
-cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/genome_assembly/Alyssum_gmelinii_genome_softmasked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 cp -r $DATADIR/results_braker_alyssum_01/Augustus/augustus.hints.gtf $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 
 
@@ -595,7 +601,7 @@ mkdir results_braker_alyssum_02
 # running BRAKER
 export BRAKER_SIF=/storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/braker_sw/braker3.sif
 
-singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=alyssum_v2_Mahnaz_2024_masked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_02 --AUGUSTUS_hints_preds=augustus.hints.gtf --addUTR=on --skipAllTraining
+singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --bam=Alyssum_RNAseq_trimmed_merged.bam --genome=Alyssum_gmelinii_genome_softmasked.fa --prot_seq=Viridiplantae.fa --threads=16 --species=Alyssum --workingdir=$SCRATCHDIR/results_braker_alyssum_02 --AUGUSTUS_hints_preds=augustus.hints.gtf --addUTR=on --skipAllTraining
 
 
 # move the output to user's DATADIR or exit in case of failure
@@ -790,7 +796,7 @@ $DATADIR/protein_seqs_input/1_downloaded/A_alpina_proteins.fasta \
 $DATADIR/protein_seqs_input/1_downloaded/Aurinia_saxatilis_proteins.fasta  \
 $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 
-cp -r $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
+cp -r $DATADIR/genome_assembly/Alyssum_gmelinii_genome_softmasked.fa $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 
 echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
 
@@ -799,7 +805,7 @@ echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
 cd $SCRATCHDIR 
 
 # make index for miniprot
-$MINIPROTDIR/miniprot -t16 -d alyssum_v2_Mahnaz_2024_masked.mpi alyssum_v2_Mahnaz_2024_masked.fa
+$MINIPROTDIR/miniprot -t16 -d alyssum_v2_Mahnaz_2024_masked.mpi Alyssum_gmelinii_genome_softmasked.fa
 
 echo "Miniprot index prepared." | ts '[%Y-%m-%d %H:%M:%S]'
 
@@ -913,7 +919,7 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/r
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # extraction of mRNA (UTRs + CDS)
-agat_sp_extract_sequences.pl -g Alyssum_assembled_transcripts.gtf -f /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t exon --merge -o Alyssum_assembled_transcripts.fasta | tee log_transcripts_AGAT.txt
+agat_sp_extract_sequences.pl -g Alyssum_assembled_transcripts.gtf -f /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t exon --merge -o Alyssum_assembled_transcripts.fasta | tee log_transcripts_AGAT.txt
 
 exit
 
@@ -1052,7 +1058,7 @@ echo "$PBS_JOBID is running on node `hostname -f` in a scratch directory $SCRATC
 test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
 
 # copy files
-cp -v $DATADIR/genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
+cp -v $DATADIR/genome_assembly/Alyssum_gmelinii_genome_softmasked.fa $SCRATCHDIR || { echo >&2 "Error while copying index file(s)!"; exit 2; }
 
 echo "Input files copied." | ts '[%Y-%m-%d %H:%M:%S]'
 
@@ -1065,7 +1071,7 @@ cd $SCRATCHDIR
 source /storage/brno2/home/duchmil/SW/mambaforge/bin/activate busco_5_7_1
 
 # run Busco
-busco --in alyssum_v2_Mahnaz_2024_masked.fa --mode genome --lineage_dataset brassicales_odb10 --cpu 8
+busco --in Alyssum_gmelinii_genome_softmasked.fa --mode genome --lineage_dataset brassicales_odb10 --cpu 8
 
 echo "Main computation done." | ts '[%Y-%m-%d %H:%M:%S]'
 
@@ -1208,13 +1214,13 @@ generate_plot.py -wd .
 ### Trying to find the proteins with internal stop codons
 
 ```{sh}
-cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_alyssum_v2_Mahnaz_2024_masked.fa/run_brassicales_odb10/busco_sequences/single_copy_busco_sequences
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_Alyssum_gmelinii_genome_softmasked.fa/run_brassicales_odb10/busco_sequences/single_copy_busco_sequences
 
 # converting from folded fasta to unfolded fasta for better counting and counting internal stop codons
 cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | grep '\*[[:alpha:]]' | wc -l # 0
 cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | head -n 50
 
-cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_alyssum_v2_Mahnaz_2024_masked.fa/run_brassicales_odb10/miniprot_output/translated_proteins/
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/busco_results/BUSCO_Alyssum_gmelinii_genome_softmasked.fa/run_brassicales_odb10/miniprot_output/translated_proteins/
 cat *.faa | awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' | grep '\*[[:alpha:]]' | wc -l # 0
 ```
 
@@ -1365,10 +1371,10 @@ cd stat_annotation
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # basic statistics
-agat_sq_stat_basic.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_braker.gtf.txt
+agat_sq_stat_basic.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_braker.gtf.txt
 
 # detailed statistics
-agat_sp_statistics.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_braker.gtf.txt
+agat_sp_statistics.pl -i ../results_braker_alyssum_01/braker.gtf -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_braker.gtf.txt
 
 ```
 
@@ -1619,10 +1625,10 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/s
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # basic statistics
-agat_sq_stat_basic.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_01_changed_IDs.gff.txt
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_alyssum_01_changed_IDs.gff.txt
 
 # detailed statistics
-agat_sp_statistics.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_01_changed_IDs.gff.txt
+agat_sp_statistics.pl -i ../annot_processing/alyssum_01_changed_IDs.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_alyssum_01_changed_IDs.gff.txt
 ```
 Basic statistics:
 ```
@@ -1641,9 +1647,9 @@ Total                   625640        250763.65         400.81            36.70
 cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
 
 # Protein sequences
-agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_01_changed_IDs_proteins.fasta
+agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -p -o alyssum_01_changed_IDs_proteins.fasta
 # CDS
-agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_01_changed_IDs_cds.fasta
+agat_sp_extract_sequences.pl -g alyssum_01_changed_IDs.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t cds -o alyssum_01_changed_IDs_cds.fasta
 
 # counting the number of sequences
 grep -c ">" alyssum_01_changed_IDs_proteins.fasta
@@ -1983,10 +1989,10 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/s
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # basic statistics
-agat_sq_stat_basic.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_annotation_01.gff.txt
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_alyssum_annotation_01.gff.txt
 
 # detailed statistics
-agat_sp_statistics.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_annotation_01.gff.txt
+agat_sp_statistics.pl -i ../annot_processing/alyssum_annotation_01.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_alyssum_annotation_01.gff.txt
 ```
 
 ```
@@ -2013,9 +2019,9 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/a
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # Protein sequences
-agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_annotation_01_proteins.fasta
+agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -p -o alyssum_annotation_01_proteins.fasta
 # CDS
-agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_annotation_01_cds.fasta
+agat_sp_extract_sequences.pl -g alyssum_annotation_01.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t cds -o alyssum_annotation_01_cds.fasta
 
 # counting the number of sequences
 grep -c ">" alyssum_annotation_01_proteins.fasta
@@ -2146,7 +2152,7 @@ gff.header.3 <- c("##gff-version 3",
                   "# Genome assembly",
                   "#",
                   "# File Alyssum_gmelinii_genome_softmasked.fa",
-                  "# (originally file alyssum_v2_Mahnaz_2024_masked.fa)",
+                  "# (originally file Alyssum_gmelinii_genome_softmasked.fa)",
                   "# # contigs (>= 0 bp)         168",
                   "# # contigs (>= 1000 bp)      168",
                   "# # contigs (>= 5000 bp)      168",
@@ -2217,12 +2223,12 @@ gff.header.3 <- c("##gff-version 3",
 ```{r eval=FALSE}
 # write header to file
 write.table(x = gff.header.3, 
-            file = "annot_processing/alyssum_v2_annotation.gff", 
+            file = "annot_processing/Alyssum_gmelinii_genome_annotation.gff", 
             sep = "\t",
             row.names = F, col.names = F, quote = F)
 # append the gff itself
 write.table(x = gff.4, 
-            file = "annot_processing/alyssum_v2_annotation.gff", 
+            file = "annot_processing/Alyssum_gmelinii_genome_annotation.gff", 
             sep = "\t",
             row.names = F, col.names = F, quote = F, append = T)
 ```
@@ -2239,10 +2245,10 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/s
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # basic statistics
-agat_sq_stat_basic.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_basic_alyssum_v2_annotation.gff.txt
+agat_sq_stat_basic.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_alyssum_v2_annotation.gff.txt
 
 # detailed statistics
-agat_sp_statistics.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa > stat_detailed_alyssum_v2_annotation.gff.txt
+agat_sp_statistics.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_alyssum_v2_annotation.gff.txt
 ```
 
 ```
@@ -2269,9 +2275,9 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/a
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # Protein sequences
-agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -p -o alyssum_v2_annotation_proteins.fasta
+agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -p -o alyssum_v2_annotation_proteins.fasta
 # CDS
-agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/alyssum_v2_Mahnaz_2024_masked.fa -t cds -o alyssum_v2_annotation_cds.fasta
+agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t cds -o alyssum_v2_annotation_cds.fasta
 
 # counting the number of sequences
 grep -c ">" alyssum_v2_annotation_proteins.fasta # 35910
