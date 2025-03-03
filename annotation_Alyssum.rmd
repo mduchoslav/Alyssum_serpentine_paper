@@ -17,14 +17,16 @@ knitr::opts_chunk$set(eval = FALSE)
 
 # Introduction
 
-This RMarkdown file documents the annotation of the newly assembled genome of *Alyssum gmelinii* for the following publication:
+This RMarkdown file (or its markdown version for GitHub) documents the annotation of the newly assembled genome of *Alyssum gmelinii* for the following publication:
 
 > Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant, Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in two *Alyssum* species shows convergence with *Arabidopsis* across 20 million years of divergence. Submitted to Annals of Botany.
+>
+> Preprint at bioRxiv: <https://doi.org/10.1101/2025.02.27.640498>
 
 This file includes:
 
-1. BASH code used at MetaCentrum (Czech national grid infrastructure) running PBS scheduling system for batch jobs.
-2. R code used to run locally.
+1. BASH code that I ran at MetaCentrum (Czech national grid infrastructure) running PBS scheduling system for batch jobs.
+2. R code that I ran locally.
 
 ### SW installation and versions
 
@@ -44,6 +46,8 @@ cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024_masked.fa .
 
 
 ## Preparation of RNAseq data
+
+The RNAseq data will be available in SRA database under project number [PRJNA1226118](https://www.ncbi.nlm.nih.gov/sra/PRJNA1226118).
 
 Copy the RNAseq data that were generated for the annotation.
 
@@ -2137,11 +2141,12 @@ gff.header <- gff.raw[grep(pattern = "^#", x = gff.raw)]
 # new header with new date
 gff.header.3 <- c("##gff-version 3",
                   "# Alyssum gmelinii (A. montanum group) genome annotation",
-                  "# 2024-11-05",
+                  "# 2024-2025",
                   "#",
                   "# Genome assembly",
                   "#",
-                  "# File alyssum_v2_Mahnaz_2024_masked.fa",
+                  "# File Alyssum_gmelinii_genome_softmasked.fa",
+                  "# (originally file alyssum_v2_Mahnaz_2024_masked.fa)",
                   "# # contigs (>= 0 bp)         168",
                   "# # contigs (>= 1000 bp)      168",
                   "# # contigs (>= 5000 bp)      168",
@@ -2280,5 +2285,5 @@ awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  
 
 # To do
 
-- Change the paper citation for the final/preprint
+- Change the paper citation for the final
 - Include SRA IDs of RNAseq data
