@@ -96,7 +96,9 @@ cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024.fa .
 cp /scratch/mahnaz_nezami/share/alyssum_v2_Mahnaz_2024_masked.fa .
 
 # renaming of assembly
-mv alyssum_v2_Mahnaz_2024_masked.fa Alyssum_gmelinii_genome_softmasked.fa
+cp alyssum_v2_Mahnaz_2024_masked.fa Alyssum_gmelinii_genome_softmasked.fa
+# compress for upload to Github
+gzip --keep --best Alyssum_gmelinii_genome_softmasked.fa
 ```
 
 ## Preparation of RNAseq data
@@ -2207,7 +2209,7 @@ gff.header.3 <- c("##gff-version 3",
                   "# Genome assembly",
                   "#",
                   "# File Alyssum_gmelinii_genome_softmasked.fa",
-                  "# (originally file Alyssum_gmelinii_genome_softmasked.fa)",
+                  "# (originally file alyssum_v2_Mahnaz_2024_masked.fa)",
                   "# # contigs (>= 0 bp)         168",
                   "# # contigs (>= 1000 bp)      168",
                   "# # contigs (>= 5000 bp)      168",
@@ -2288,6 +2290,14 @@ write.table(x = gff.4,
             row.names = F, col.names = F, quote = F, append = T)
 ```
 
+#### Pack for upload to Github
+
+``` sh
+cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/annot_processing
+
+gzip --keep Alyssum_gmelinii_genome_annotation.gff
+```
+
 ## Statistics of annotation and extraction of protein and coding sequences using AGAT
 
 ``` sh
@@ -2300,10 +2310,10 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/s
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # basic statistics
-agat_sq_stat_basic.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_alyssum_v2_annotation.gff.txt
+agat_sq_stat_basic.pl -i ../annot_processing/Alyssum_gmelinii_genome_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_basic_Alyssum_gmelinii_genome_annotation.gff.txt
 
 # detailed statistics
-agat_sp_statistics.pl -i ../annot_processing/alyssum_v2_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_alyssum_v2_annotation.gff.txt
+agat_sp_statistics.pl -i ../annot_processing/Alyssum_gmelinii_genome_annotation.gff -g ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa > stat_detailed_Alyssum_gmelinii_genome_annotation.gff.txt
 ```
 
     Type (3rd column) Number Size total (kb) Size mean (bp) % of the genome
@@ -2329,18 +2339,22 @@ cd /storage/brno12-cerit/home/duchmil/annotations/alyssum_2024_Mahnaz_assembly/a
 singularity run /storage/brno12-cerit/home/duchmil/SW/agat/agat_1.4.0--pl5321hdfd78af_0.sif
 
 # Protein sequences
-agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -p -o alyssum_v2_annotation_proteins.fasta
+agat_sp_extract_sequences.pl -g Alyssum_gmelinii_genome_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -p -o Alyssum_gmelinii_genome_annotation_proteins.fasta
 # CDS
-agat_sp_extract_sequences.pl -g alyssum_v2_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t cds -o alyssum_v2_annotation_cds.fasta
+agat_sp_extract_sequences.pl -g Alyssum_gmelinii_genome_annotation.gff -f ../genome_assembly/Alyssum_gmelinii_genome_softmasked.fa -t cds -o Alyssum_gmelinii_genome_annotation_cds.fasta
 
 # counting the number of sequences
-grep -c ">" alyssum_v2_annotation_proteins.fasta # 35910
-grep -c ">" alyssum_v2_annotation_cds.fasta # 35910
+grep -c ">" Alyssum_gmelinii_genome_annotation_proteins.fasta # 35910
+grep -c ">" Alyssum_gmelinii_genome_annotation_cds.fasta # 35910
 
 
 # converting from folded fasta to unfolded fasta for better counting and checking for internal stop codons
 awk '/^>/ { if(NR>1) print "";  printf("%s\n",$0); next; } { printf("%s",$0);}  END {printf("\n");}' < alyssum_v2_annotation_proteins.fasta | grep \*[[:alpha:]] | wc -l
 # 0
+
+# compress for upload to github
+gzip --keep Alyssum_gmelinii_genome_annotation_proteins.fasta
+gzip --keep Alyssum_gmelinii_genome_annotation_cds.fasta
 ```
 
 # To do
