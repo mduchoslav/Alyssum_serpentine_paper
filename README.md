@@ -13,10 +13,10 @@ This repository contains scripts and data for annotation of the newly assembled 
 
 ### Scripts and documentation
 
-The main file with scripts and other information for annotation:
+The main file with scripts and other information for annotation:  
 [GitHub md file](01_genome_annotation/annotation_Alyssum.md) | [original RMarkdown file](01_genome_annotation/annotation_Alyssum.rmd)
 
-Installation and versions of tools used:
+Installation and versions of tools used:  
 [GitHub md file](01_genome_annotation/Installation_of_SW.md) | [original RMarkdown file](01_genome_annotation/Installation_of_SW.Rmd)
 
 ### Genome and annotation of *Alyssum gmelinii*
