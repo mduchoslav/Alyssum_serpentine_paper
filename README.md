@@ -21,14 +21,14 @@ Installation and versions of tools used:
 
 ### Genome and annotation of *Alyssum gmelinii*
 
-Genome with repeats softmasked by RepeatMasker:
-<Alyssum_gmelinii_genome_softmasked.fa.gz>
+Genome with repeats softmasked by RepeatMasker:  
+[Alyssum_gmelinii_genome_softmasked.fa.gz](Alyssum_gmelinii_genome_softmasked.fa.gz)
 
-Genome annotation in GFF format:
-<Alyssum_gmelinii_genome_annotation.gff.gz>
+Genome annotation in GFF format:  
+[Alyssum_gmelinii_genome_annotation.gff.gz](Alyssum_gmelinii_genome_annotation.gff.gz)
 
-Coding sequences (CDS) extracted by AGAT:
-<Alyssum_gmelinii_genome_annotation_cds.fasta.gz>
+Coding sequences (CDS) extracted by AGAT:  
+[Alyssum_gmelinii_genome_annotation_cds.fasta.gz](Alyssum_gmelinii_genome_annotation_cds.fasta.gz)
 
-Protein sequences extracted by AGAT:
-<Alyssum_gmelinii_genome_annotation_proteins.fasta.gz>
+Protein sequences extracted by AGAT:  
+[Alyssum_gmelinii_genome_annotation_proteins.fasta.gz](Alyssum_gmelinii_genome_annotation_proteins.fasta.gz)
