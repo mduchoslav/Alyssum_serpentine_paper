@@ -1,0 +1,1 @@
+This folder contains just part of the original OrthoFinder results (just the folders with results used in my analysis).
