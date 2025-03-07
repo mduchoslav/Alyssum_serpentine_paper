@@ -49,4 +49,6 @@ To get some functional information about *Alyssum gmelinii* genes and to be able
 		[Alyssum_gmelinii__v__Arabidopsis_thaliana_supplemented.tsv](02_orthology/supplemented_orthologues/Alyssum_gmelinii__v__Arabidopsis_thaliana_supplemented.tsv)
 
 In further analysis, Sonia used the columns `Alyssum_gmelinii` with *Alyssum gmelinii* gene IDs and `single_Arabidopsis_thaliana` with corresponding *Arabidopsis thaliana* orthologues/homologues.
+
+Newer versions of these scripts and the resulting orthology tables and functional annotations for more Brassicaceae species can be found in my repository [Brassicaceae_orthology](https://github.com/mduchoslav/Brassicaceae_orthology).
 		
