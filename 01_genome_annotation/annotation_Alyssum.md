@@ -1593,7 +1593,8 @@ for(i in 1:nrow(genes)) {
       # Transcript IDs
       transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = extr.feature)
       # Sequence of numbers for features within transcript and gene (1 to n for every transcript)
-      feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts)))
+      # feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts))) # this doesn't work if the exons or other features are not in alphabetical order
+      feat.numbers <- ave(x = seq_along(transcripts), transcripts, FUN = seq_along)
       # Modify the feature IDs
       mod.feature <- mapply(sub, 
                             pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), 
@@ -1633,6 +1634,23 @@ tail(gff.3, n = 40)
 # gff.2[grepl(pattern = "Parent=g[^8]*g.*", x = gff.2$V9), ]
 # 
 # gff.4 <- gff.3
+# 
+# gff.3[grepl(pattern = "AM001babihu", x = gff.3$V9), ]
+# genes[grepl(pattern = "AM001babihu", x = genes$new.genes), ]
+# gff.2[grepl(pattern = "g230", x = gff.2$V9), ]
+# i=230
+# unique(transcripts)
+# 
+# # Example factor vector
+# x <- factor(c("a", "b", "a", "c", "a", "b", "c", "c"))
+# x <- transcripts
+# 
+# # Create a running count
+# running_count <- ave(x = seq_along(transcripts), transcripts, FUN = seq_along)
+# 
+# running_count
+
+
 
 ## Change of column 2
 gff.4 <- gff.3
@@ -1936,7 +1954,8 @@ for(i in 1:nrow(genes)) {
       # Transcript IDs
       transcripts <- gsub(pattern = ".*transcript_id=", replacement = "", x = extr.feature)
       # Sequence of numbers for features within transcript and gene (1 to n for every transcript)
-      feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts)))
+      # feat.numbers <- unlist(mapply(seq, from = 1, to = table(transcripts))) # this doesn't work if the exons or other features are not in alphabetical order
+      feat.numbers <- ave(x = seq_along(transcripts), transcripts, FUN = seq_along)
       # Modify the feature IDs
       mod.feature <- mapply(sub, 
                             pattern = paste0("ID=agat-", feature, "-[[:digit:]]+;"), 
@@ -1961,6 +1980,7 @@ tail(gff.3, n = 40)
 # tail(gff.3, n = 100)
 # 
 # gff.3[grep(pattern = "=g365(;|\\.t|$)", x = gff.2$V9), ] 
+# gff.3[grep(pattern = "AM001bogibi", x = gff.3$V9), ] 
 #   
 # i=1
 # i=2
@@ -2118,6 +2138,26 @@ table(as.factor(gff.1$V3))
 # scaffold names
 levels(as.factor(gff.1$V1))
 ```
+
+### Checking difference made by AGAT
+
+Log file of AGAT
+(Alyssum_assembled_transcripts_with_no_annotation_overlap_clean_changed_IDs.agat.log):
+`We fixed 158 wrong level1 location cases`
+
+``` r
+gff.4[1:50, 1:5]
+gff.1[gff.1$V2 %in% c("AGAT", "StringTie"), ][1:50, 1:5]
+cbind(gff.4[1:50, 1:5], gff.1[gff.1$V2 %in% c("AGAT", "StringTie"), ][1:50, 1:5])
+cbind(gff.4[, 1:5], gff.1[gff.1$V2 %in% c("AGAT", "StringTie"), 1:9])[gff.4[, 4] != gff.1[gff.1$V2 %in% c("AGAT", "StringTie"), 4], ]
+```
+
+I checked some of the locations through IGV. It seems that AGAT just
+adjusted the locations of some ncRNA_gene where there were originally
+several transcripts (ncRNA), but some overlapped with protein coding
+genes and thus were not retained. AGAT limited the location of gene to
+the outer boundaries of ncRNA. Due to that, AGAT sometimes also changed
+the order of the neighboring genes.
 
 ### Changing IDs
 
