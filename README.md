@@ -5,7 +5,13 @@ Miloš Duchoslav
 
 This repository contains scripts and data for annotation of the newly assembled genome of *Alyssum gmelinii* for the following publication:
 
-> Sonia Celestini, Miloš Duchoslav, Mahnaz Nezamivand-Chegini, Jörn Gerchen, Gabriela Šrámková, Raúl Wijfjes, Anna Krejčová, Nevena Kuzmanović, Stanislav Španiel, Korbinian Schneeberger, Levi Yant, Filip Kolář (2025): Genomic basis of adaptation to serpentine soil in two *Alyssum* species shows convergence with *Arabidopsis* across 20 million years of divergence. Submitted to Annals of Botany.
+> Celestini S., Duchoslav M., Nezamivand-Chegini M., Gerchen J.,
+> Šrámková G., Wijfjes R., Krejčová A., Kuzmanović N., Španiel S.,
+> Schneeberger K., Yant L., Kolář F. (2025) Genomic basis of adaptation
+> to serpentine soil in two Alyssum species shows convergence with
+> Arabidopsis across 20 million years of divergence. Annals of Botany:
+> mcaf141. doi:
+> [10.1093/aob/mcaf141](https://doi.org/10.1093/aob/mcaf141)
 >
 > Preprint at bioRxiv: <https://doi.org/10.1101/2025.02.27.640498>
 
